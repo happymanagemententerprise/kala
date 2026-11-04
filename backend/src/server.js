@@ -4,7 +4,7 @@ import { extname, join } from 'node:path';
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { WebSocketServer, WebSocket } from 'ws';
 
-const development = process.argv.includes('--dev');
+const development = process.argv.includes('--dev') && process.env.NODE_ENV !== 'production' && !process.env.RENDER;
 const port = Number(process.env.PORT || (development ? 8787 : 10000));
 const rooms = new Map();
 const maxPlayers = 6;
@@ -86,7 +86,7 @@ const httpServer=createServer(async(req,res)=>{
   if(req.method==='POST'&&url.pathname==='/api/rooms'){
     const room=makeRoom();rooms.set(room.code,room);json(res,{code:room.code},201);return;
   }
-  if(development){res.writeHead(404);res.end('Use the Vite frontend on port 5173.');return;}
+  if(development){res.writeHead(302,{location:`http://localhost:5173${req.url||'/'}`,'cache-control':'no-store'});res.end();return;}
   try{
     let relative=decodeURIComponent(url.pathname).replace(/^[/\\]+/,'');
     if(relative.split(/[/\\]/).includes('..')){res.writeHead(400);res.end('Bad path');return;}
