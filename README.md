@@ -1,50 +1,50 @@
 # KALA · Neon Arena Tactics
 
-Browser based, simultaneous turn tactics game. Three.js/WebGL renders the arena. Player rooms are coordinated by a Cloudflare Worker and one SQLite backed Durable Object per five character room code.
+Browser based simultaneous turn arena game. The frontend is Vite and Three.js/WebGL. A Node.js WebSocket service handles room codes, presence, turn locks, host actions, and TV viewers. The same Node service serves the built frontend in production.
 
-## Project layout
+## Layout
 
 ```text
 kala/
-├── frontend/          # Vite app: HTML, UI, Three.js game and room client
+├── frontend/           # Vite app, HTML/CSS, Three.js game and room client
 │   ├── index.html
 │   ├── src/main.js
 │   └── vite.config.js
-└── backend/            # Cloudflare Worker and Durable Object room server
-    ├── src/worker.js
-    └── wrangler.toml
+├── backend/src/server.js  # HTTP, room API, WebSockets, room lifecycle
+├── package.json
+└── render.yaml
 ```
 
-## Local development
+## Run locally
 
-Use Node.js 20.19 or newer. From the project root:
+Use Node.js 20.19 or newer:
 
 ```sh
 npm install
 npm run dev
 ```
 
-Vite serves the frontend on port 5173 and proxies room HTTP/WebSocket requests to Wrangler on port 8787. Wrangler runs the Durable Object locally, so room creation, joining, hidden move locks and TV view work without a separate Node room server.
+Open `http://localhost:5173`. Vite proxies room API and WebSocket traffic to the Node room server on port 8787.
 
-## Deploy to Cloudflare
+## Render deployment
 
-Authenticate Wrangler once, then build the frontend and deploy the Worker with its static assets:
+This repo includes [render.yaml](render.yaml) for one Render **Web Service**. Render runs:
 
-```sh
-npx wrangler login
-npm run deploy
-```
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Health check: `/healthz`
 
-The Worker serves the built `frontend/dist` files and routes `/api/rooms` and `/ws/:code` through the Durable Object binding. The binding and SQLite Durable Object export are in [backend/wrangler.toml](backend/wrangler.toml). Durable Objects provide a single coordination point for each room and persist state through hibernation. The frontend and room socket use one origin, including TV links opened with `?tv=CODE`.
+The server binds to Render's `PORT`, serves `frontend/dist`, and accepts WebSockets on the same origin. Render supports inbound WebSockets on Web Services. [Render WebSocket docs](https://render.com/docs/websocket) · [Render deployment settings](https://render.com/docs/your-first-deploy)
 
-## Play
+Room records are held in memory. Run a single Render instance for now; restarts or multiple instances can lose or split active rooms. For durable, multi-instance rooms, add a shared store and coordination layer.
 
-- Tap/click inside the safe zone to choose a position. Drag to set aim. Your move remains hidden on the shared display.
-- Lock your move. Room players' moves stay private until every living operative commits; the volley is then shown together.
-- Standard shots stop at the first wall or obstacle. Three eliminations unlock a single-bounce ricochet.
-- Only laser hits eliminate. The arena reshapes and contracts between volleys; players outside the new boundary are repositioned safely.
-- Solo and Teams modes support bot matches. Room matches support up to six players. If you are eliminated, you can watch the room continue.
-- Create a room and share its code or invite link. The host starts the match. Open the TV view in a separate browser/device with the room code or `?tv=CODE`.
-- Room controls include ready-up, host transfer, kick, leave, end match, return the room to the lobby, and close the room for everyone. Host actions are checked in the Durable Object; the host can manage the roster from the top-bar room shortcut.
+## Play and room controls
 
-The ray solver uses ray/segment intersections, point-in-polygon checks, point-to-segment hit testing and vector reflection.
+- Tap inside the arena to choose a position; drag to aim. Player moves stay hidden until all living operatives lock.
+- Create a room and share its code or invite link. Guests ready up before the host can start.
+- Host controls include host transfer, kick, end game, back to lobby, and end room. Players can leave; the room host transfers when needed.
+- Use a separate device/browser in TV view for a read-only room display.
+- Standard shots stop at the first wall or obstacle. Three kills unlock one-bounce Ricochet. Only laser hits eliminate; arena shrink safely moves players inside.
+- Solo and Teams bot matches continue after the human is eliminated.
+
+The ray solver uses ray/segment intersections, polygon boundary tests, point-to-segment hit testing, and vector reflection.

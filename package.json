@@ -5,14 +5,16 @@
   "engines": { "node": ">=20.19.0" },
   "workspaces": ["frontend"],
   "scripts": {
-    "dev": "concurrently --kill-others -n WEB,ROOMS -c cyan,magenta \"npm:dev:frontend\" \"npm:dev:worker\"",
+    "dev": "concurrently --kill-others -n WEB,ROOMS -c cyan,magenta \"npm:dev:frontend\" \"npm:dev:backend\"",
     "dev:frontend": "npm run dev --workspace @kala/frontend",
-    "dev:worker": "npm run build --workspace @kala/frontend && wrangler dev --config backend/wrangler.toml --port 8787",
+    "dev:backend": "node backend/src/server.js --dev",
     "build": "npm run build --workspace @kala/frontend",
-    "deploy": "npm run build && wrangler deploy --config backend/wrangler.toml"
+    "start": "node backend/src/server.js"
+  },
+  "dependencies": {
+    "ws": "8.18.3"
   },
   "devDependencies": {
-    "concurrently": "10.0.6",
-    "wrangler": "4.157.0"
+    "concurrently": "10.0.6"
   }
 }
