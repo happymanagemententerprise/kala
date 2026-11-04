@@ -1,0 +1,4 @@
+.room-action:disabled,.room-lobby-actions .fire-button:disabled{opacity:.42;cursor:not-allowed}
+.room-player-actions{display:flex;gap:4px;margin-left:auto}.room-player-actions button{border:1px solid #35414d;background:#111922;color:#91a0ad;padding:4px 5px;font:7px var(--mono);letter-spacing:.35px;white-space:nowrap;cursor:pointer}.room-player-actions button:hover{border-color:var(--cyan);color:var(--cyan)}.room-player-actions button:last-child:hover{border-color:var(--red);color:var(--red)}.room-action.danger{border-color:#63323e;color:#ff9aa7}.room-action.danger:hover{border-color:var(--red);background:#261219;color:#ff7183}#room-shortcut{color:var(--cyan)}
+body.tv-view #room-shortcut{display:none}
+@media(max-width:780px){.right-rail .room-entry{grid-column:1/-1}.room-entry .room-join-line input{flex:1}.room-entry .room-join-line>button{min-width:64px}}

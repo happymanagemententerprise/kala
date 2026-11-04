@@ -1,0 +1,18 @@
+{
+  "name": "kala",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=20.19.0" },
+  "workspaces": ["frontend"],
+  "scripts": {
+    "dev": "concurrently --kill-others -n WEB,ROOMS -c cyan,magenta \"npm:dev:frontend\" \"npm:dev:worker\"",
+    "dev:frontend": "npm run dev --workspace @kala/frontend",
+    "dev:worker": "npm run build --workspace @kala/frontend && wrangler dev --config backend/wrangler.toml --port 8787",
+    "build": "npm run build --workspace @kala/frontend",
+    "deploy": "npm run build && wrangler deploy --config backend/wrangler.toml"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.6",
+    "wrangler": "4.157.0"
+  }
+}
