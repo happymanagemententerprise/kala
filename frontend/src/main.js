@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import QRCode from 'qrcode';
 
 // Kala keeps the authoritative board and all pending moves local. Nothing is
 // drawn from a pending move until every living operative has committed.
@@ -797,6 +798,26 @@ $('#copy-room-link').addEventListener('click',async()=>{
   const invite=`${location.origin}${location.pathname}?room=${state.roomCode}`;
   try{await navigator.clipboard.writeText(invite);toast('Invite link copied.');}catch{$('#room-error').textContent=invite;}
 });
+$('#copy-room-code').addEventListener('click',async()=>{
+  try{await navigator.clipboard.writeText(state.roomCode||'');toast('Room code copied.');}
+  catch{$('#room-error').textContent=state.roomCode||'No room code available.';}
+});
+let tvViewLink='';
+async function showTVQRCode(){
+  if(!state.roomCode){toast('Create or join a room first.');return;}
+  const url=new URL(location.pathname,location.origin);url.searchParams.set('tv',state.roomCode);
+  tvViewLink=url.toString();
+  $('#tv-qr-code-label').textContent=state.roomCode;
+  $('#tv-qr-link').textContent=tvViewLink;
+  $('#tv-qr-note').textContent=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?'Local address detected. For another device, open Kala using this computer’s network address first.':'Read-only screen · positions stay hidden until all players lock.';
+  $('#tv-qr-modal').classList.add('open');
+  try{await QRCode.toCanvas($('#tv-qr-canvas'),tvViewLink,{width:280,margin:2,errorCorrectionLevel:'H',color:{dark:'#071018',light:'#ffffff'}});}
+  catch{toast('Could not create the TV QR code.');}
+}
+$('#show-tv-qr').addEventListener('click',showTVQRCode);
+$('#tv-qr-close').addEventListener('click',()=>$('#tv-qr-modal').classList.remove('open'));
+$('#tv-qr-modal').addEventListener('click',event=>{if(event.target.id==='tv-qr-modal')$('#tv-qr-modal').classList.remove('open');});
+$('#copy-tv-link').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(tvViewLink);toast('TV view link copied.');}catch{toast(tvViewLink);}});
 $('#leave-room').addEventListener('click',()=>{
   sendRoom({type:'leave-room'});exitRoom('Left the room.');$('#room-modal').classList.remove('open');
 });

@@ -41,7 +41,7 @@ Room records are held in memory. Run a single Render instance for now; restarts 
 ## Play and room controls
 
 - Tap inside the arena to choose a position; drag to aim. Player moves stay hidden until all living operatives lock.
-- Create a room and share its code or invite link. Guests ready up before the host can start.
+- Create a room and share its five-character code or invite link. Guests can join by code; the room lobby can also show a QR code that opens the read-only TV view on another device.
 - Host controls include host transfer, kick, end game, back to lobby, and end room. Players can leave; the room host transfers when needed.
 - Use a separate device/browser in TV view for a read-only room display.
 - Standard shots stop at the first wall or obstacle. Three kills unlock one-bounce Ricochet. Only laser hits eliminate; arena shrink safely moves players inside.
