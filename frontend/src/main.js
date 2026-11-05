@@ -357,6 +357,13 @@ function acquirePosition(p) {
   return state.lockedMoves.get(p.id)?.pos || p.pos;
 }
 
+function vibrateForOpponentHit() {
+  if (typeof navigator.vibrate !== 'function') return;
+  const hasTouch = navigator.maxTouchPoints > 0 || matchMedia('(pointer: coarse)').matches;
+  if (!hasTouch) return;
+  try { navigator.vibrate([90, 45, 150]); } catch { /* Haptics are optional on unsupported browsers. */ }
+}
+
 function resolveVolley(sharedMoves = null) {
   if (state.phase !== 'planning' && state.phase !== 'locked') return;
   const moves = state.online ? new Map(state.lockedMoves) : new Map(planBots());
@@ -390,15 +397,21 @@ function resolveVolley(sharedMoves = null) {
   }
   state.beams = [];
   for (const { shooter, segment } of paths) addBeamSegment(segment.a, segment.b, colorOf(shooter));
-  const humanHit = Boolean(state.human?.alive && killed.has(state.human.id || 'human'));
+  const humanId=state.human?.id||'human';
+  const humanHit = Boolean(state.human?.alive && killed.has(humanId));
+  const attackerIds=killed.get(humanId)||new Set();
+  const hitByOpponent=[...attackerIds].some(id=>{
+    const attacker=state.players.find(player=>player.id===id);
+    return attacker&&attacker!==state.human&&(state.mode!=='teams'||attacker.team!==state.human.team);
+  });
   for (const [id, shooters] of killed) {
     const target = state.players.find(p=>p.id===id); if (!target?.alive) continue;
     target.alive = false; target.move = null;
     for (const sid of shooters) { const shooter=state.players.find(p=>p.id===sid); if (shooter) shooter.kills++; }
     burst(target.pos,colorOf(target));
   }
-  if (humanHit && navigator.vibrate) navigator.vibrate([70,35,100]);
-  state.lastResult = { killed, humanHit };
+  if (hitByOpponent) vibrateForOpponentHit();
+  state.lastResult = { killed, humanHit, hitByOpponent };
   state.phase = 'resolving'; state.showBeamsUntil = performance.now()+1500;
   for (const p of state.players) {
     if (p.alive) addToken(p);
