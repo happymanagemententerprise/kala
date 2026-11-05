@@ -5,7 +5,7 @@ import QRCode from 'qrcode';
 // drawn from a pending move until every living operative has committed.
 const $ = (s) => document.querySelector(s);
 const arenaRoot = $('#arena-root');
-const palette = { cyan: 0x59f5e4, red: 0xff566d, blue: 0x56a6ff, violet: 0xa68aff, amber: 0xffd26c, white: 0xeaf8ff };
+const palette = { mint: 0xe6fbda, moss: 0x85d176, dusk: 0x3f5ba4, deep: 0x0d2d46, lemon: 0xfff8d3, red: 0xb95f58, white: 0xe6fbda };
 const scene = new THREE.Scene();
 const camera = new THREE.OrthographicCamera(-10, 10, 10, -10, .1, 100);
 camera.position.set(0, 0, 32);
@@ -40,8 +40,8 @@ const ambient = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.Shad
     float hash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
     void main(){ vec2 uv=vUv; vec2 p=(uv-.5)*vec2(1.0,1.15); float vignette=1.0-smoothstep(.12,.72,length(p));
       float grid=max(step(.992,fract(uv.x*64.0)),step(.992,fract(uv.y*64.0))); float drift=.5+.5*sin(uTime*.12+uv.x*5.0+uv.y*3.0);
-      float grain=hash(floor(uv*vec2(270.0,170.0))+floor(uTime*3.0)); vec3 base=vec3(.018,.031,.052)+vec3(.015,.09,.087)*vignette*(.65+.35*drift);
-      base+=vec3(.025,.12,.11)*grid*vignette*.13; base+=vec3(.10,.22,.27)*step(.998,grain)*.12; gl_FragColor=vec4(base,1.0); }`
+      float grain=hash(floor(uv*vec2(270.0,170.0))+floor(uTime*3.0)); vec3 base=vec3(.051,.176,.275)+vec3(.04,.10,.12)*vignette*(.65+.35*drift);
+      base+=vec3(.13,.21,.45)*grid*vignette*.10; base+=vec3(.45,.63,.52)*step(.999,grain)*.08; gl_FragColor=vec4(base,1.0); }`
 }));
 ambient.position.z = -8; scene.add(ambient);
 
@@ -50,13 +50,13 @@ const state = {
   selected: null, aim: 0, locked: false, lockedMoves: new Map(), beams: [], particles: [],
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
-  online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1,
+  online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null,
 };
 let startupTV = new URLSearchParams(location.search).has('tv');
 
-const colorOf = (p) => p.human ? palette.cyan : state.mode === 'teams' ? (p.team === 'Red' ? palette.red : palette.blue) : p.color;
+const colorOf = (p) => p.human ? palette.mint : state.mode === 'teams' ? (p.team === 'Red' ? palette.red : palette.dusk) : p.color;
 const names = ['VEX', 'GHOST', 'NYX', 'ROOK', 'ECHO', 'ZERO', 'KITE'];
-const botColors = [palette.red, palette.blue, palette.amber, palette.violet, 0xff8f57, 0x84ed9b];
+const botColors = [palette.red, palette.dusk, palette.lemon, palette.moss, 0xf0c9a6, 0x8da8cf];
 const random = (a, b) => a + randomSource() * (b - a);
 
 function makePolygon(sides, radius, rotation = -Math.PI / 2, center = v(0, 0)) {
@@ -169,7 +169,7 @@ function buildArena() {
 
 function makePlayers() {
   const n = state.botCount + 1;
-  state.players = [{ id: 'human', name: 'YOU', human: true, alive: true, kills: 0, team: 'Blue', color: palette.cyan, pos: v(0, 0), move: null }];
+  state.players = [{ id: 'human', name: 'YOU', human: true, alive: true, kills: 0, team: 'Blue', color: palette.mint, pos: v(0, 0), move: null }];
   for (let i = 1; i < n; i++) state.players.push({ id: `bot-${i}`, name: names[(i - 1) % names.length], human: false, alive: true, kills: 0, team: i % 2 ? 'Red' : 'Blue', color: botColors[(i - 1) % botColors.length], pos: v(0, 0), move: null });
   state.human = state.players[0];
   const startRadius = Math.min(view.w * .31, view.h * .29, view.radius * .65);
@@ -177,30 +177,30 @@ function makePlayers() {
 }
 
 function rebuildVisuals() {
+  state.boundaryPulse = null;
   while (group.children.length) {
     const child = group.children.pop();
     if (child.geometry) child.geometry.dispose();
     if (child.material) { if (Array.isArray(child.material)) child.material.forEach(m => m.dispose()); else child.material.dispose(); }
   }
-  const backdrop = makeLine(state.arena, 0x22514f, .16, 1, true);
+  const backdrop = makeLine(state.arena, palette.dusk, .18, 1, true);
   backdrop.position.z = .0;
-  makeLine(state.arena, 0x49eee0, .88, 1, true).position.z = .08;
-  // Inner parallel rails add an illuminated containment field.
+  makeLine(state.arena, palette.moss, .88, 1, true).position.z = .08;
   const inner = state.arena.map(p => mul(p, .965));
-  makeLine(inner, 0x2ea49b, .33, 1, true).position.z = .07;
+  makeLine(inner, palette.mint, .25, 1, true).position.z = .07;
   state.arena.forEach((p, i) => {
-    const marker = circleMesh(.055, 0x93fff1, .95, .12); marker.position.set(p.x, p.y, .12); group.add(marker);
+    const marker = circleMesh(.05, palette.lemon, .85, .12); marker.position.set(p.x, p.y, .12); group.add(marker);
   });
   for (const obstacle of state.obstacles) {
     const shape = new THREE.Shape(); shape.moveTo(obstacle.points[0].x, obstacle.points[0].y);
     obstacle.points.slice(1).forEach(p => shape.lineTo(p.x, p.y)); shape.closePath();
-    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: 0x161c34, transparent: true, opacity: .9, side: THREE.DoubleSide, depthWrite: false }));
+    const mesh = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: palette.dusk, transparent: true, opacity: .78, side: THREE.DoubleSide, depthWrite: false }));
     mesh.position.z = .16; group.add(mesh);
-    makeLine(obstacle.points, 0x796dff, .22, 1, true).position.z = .18;
-    makeLine(obstacle.points, 0x9e90ff, .78, 1, true).position.z = .19;
-    obstacle.points.forEach(p => { const glint = circleMesh(.028, 0xc8bcff, .8, .2); glint.position.set(p.x,p.y,.2); group.add(glint); });
+    makeLine(obstacle.points, palette.deep, .5, 1, true).position.z = .18;
+    makeLine(obstacle.points, palette.mint, .8, 1, true).position.z = .19;
+    obstacle.points.forEach(p => { const glint = circleMesh(.028, palette.lemon, .8, .2); glint.position.set(p.x,p.y,.2); group.add(glint); });
     const inset = obstacle.points.map(p => mix(p, v((obstacle.points[0].x+obstacle.points[2].x)/2,(obstacle.points[0].y+obstacle.points[2].y)/2), .12));
-    makeLine(inset, 0x554e8c, .4, 1, true).position.z = .19;
+    makeLine(inset, palette.lemon, .45, 1, true).position.z = .19;
   }
   addAmbient();
   // Shared-screen mode deliberately suppresses every operative and aim marker
@@ -217,7 +217,40 @@ function addAmbient() {
     if (!pointInPolygon(v(x, y), state.arena)) positions.push(x, y, -.2);
   }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0x87b8c6, size: .035, transparent: true, opacity: .35, sizeAttenuation: false, depthWrite: false })); group.add(stars);
+  const stars = new THREE.Points(geo, new THREE.PointsMaterial({ color: palette.mint, size: .035, transparent: true, opacity: .22, sizeAttenuation: false, depthWrite: false })); group.add(stars);
+}
+function startBoundaryPulse() {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const points = state.arena;
+  if (points.length < 2) return;
+  const lengths = points.map((point, i) => dist(point, points[(i + 1) % points.length]));
+  const total = lengths.reduce((sum, value) => sum + value, 0);
+  const glow = circleMesh(.34, palette.moss, .28, .36);
+  const marker = circleMesh(.105, palette.lemon, .96, .38);
+  group.add(glow, marker);
+  state.boundaryPulse = { started: performance.now(), duration: 1250, points, lengths, total, glow, marker };
+}
+function updateBoundaryPulse(now) {
+  const pulse = state.boundaryPulse;
+  if (!pulse) return;
+  const progress = (now - pulse.started) / pulse.duration;
+  if (progress >= 1) {
+    group.remove(pulse.glow, pulse.marker);
+    pulse.glow.geometry.dispose(); pulse.glow.material.dispose();
+    pulse.marker.geometry.dispose(); pulse.marker.material.dispose();
+    state.boundaryPulse = null;
+    return;
+  }
+  let distanceAlong = Math.max(0, progress) * pulse.total;
+  let index = 0;
+  while (index < pulse.lengths.length - 1 && distanceAlong > pulse.lengths[index]) distanceAlong -= pulse.lengths[index++];
+  const segmentLength = pulse.lengths[index] || 1;
+  const point = mix(pulse.points[index], pulse.points[(index + 1) % pulse.points.length], distanceAlong / segmentLength);
+  pulse.marker.position.set(point.x, point.y, .38);
+  pulse.glow.position.set(point.x, point.y, .36);
+  const fade = Math.sin(Math.PI * Math.max(0, progress));
+  pulse.glow.material.opacity = .13 + fade * .28;
+  pulse.glow.scale.setScalar(.9 + fade * .45);
 }
 function addToken(player) {
   const color = colorOf(player), hex = `#${color.toString(16).padStart(6, '0')}`;
@@ -231,11 +264,11 @@ function addToken(player) {
     fragmentShader: 'varying vec2 vUv; uniform vec3 uColor; uniform float uTime; void main(){ vec2 p=vUv-.5; float r=length(p)*2.0; float rim=smoothstep(.51,.20,r); float pulse=.78+.22*sin(uTime*5.0); float alpha=(.17+rim*.68)*pulse; vec3 col=mix(uColor,vec3(1.0),pow(rim,4.0)*.64); gl_FragColor=vec4(col,alpha); }',
     transparent: true, blending: THREE.AdditiveBlending, depthWrite: false,
   })); core.position.z = .14; root.add(core);
-  const center = circleMesh(.135, 0x0b1119, .97, .15); root.add(center);
-  const pip = circleMesh(.042, 0xf1ffff, .95, .16); pip.position.set(-.045, .065, 0); root.add(pip);
-  const label = makeTextSprite(player.human ? 'YOU' : player.name, player.human ? '#59f5e4' : `#${color.toString(16).padStart(6, '0')}`);
+  const center = circleMesh(.135, palette.deep, .97, .15); root.add(center);
+  const pip = circleMesh(.042, palette.lemon, .95, .16); pip.position.set(-.045, .065, 0); root.add(pip);
+  const label = makeTextSprite(player.human ? 'YOU' : player.name, player.human ? '#e6fbda' : `#${color.toString(16).padStart(6, '0')}`);
   label.position.set(0, -.7, .17); root.add(label);
-  const directional = makeLine([v(0,.19),v(.12,.05),v(.035,.05),v(.035,-.08),v(-.035,-.08),v(-.035,.05),v(-.12,.05),v(0,.19)], 0xffffff, .75, 1, false);
+  const directional = makeLine([v(0,.19),v(.12,.05),v(.035,.05),v(.035,-.08),v(-.035,-.08),v(-.035,.05),v(-.12,.05),v(0,.19)], palette.lemon, .75, 1, false);
   directional.scale.set(.27,.27,1); directional.position.set(0,0,.17); root.add(directional);
   player.visualParts = { halo, outer, inner, core };
   player.visual.color = hex;
@@ -262,7 +295,7 @@ function addBeamSegment(a, b, color, faint = false) {
   const c = new THREE.Color(color);
   const outer = makeLine([a,b], c, faint ? .18 : .24, 1); outer.position.z = .42;
   const mid = makeLine([a,b], c, faint ? .45 : .65, 1); mid.scale.set(1,1,1); mid.position.z = .44;
-  const hot = makeLine([a,b], 0xffffff, faint ? .64 : .94, 1); hot.position.z = .46;
+  const hot = makeLine([a,b], palette.lemon, faint ? .64 : .94, 1); hot.position.z = .46;
   state.beams.push({ objects: [outer,mid,hot], until: performance.now() + (faint ? 500 : 1500), color });
 }
 
@@ -360,6 +393,7 @@ function resolveVolley(sharedMoves = null) {
     else if (p.visual) { group.remove(p.visual); p.visual = null; }
   }
   if (state.human?.alive && state.human.visual) { state.human.visual.position.set(state.human.pos.x,state.human.pos.y,.8); }
+  startBoundaryPulse();
   state.locked = false; state.selected = null; state.lockedMoves.clear();
   updateHUD();
   const ended = checkWinner();
@@ -431,7 +465,7 @@ function newMatch() {
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('tv');cleanUrl.searchParams.delete('room');history.replaceState({},'',cleanUrl);
   state.round=1;state.zone=1;state.phase='planning';state.locked=false;state.selected=null;state.aim=0;state.lockedMoves.clear();state.beams=[];state.particles=[];state.lastResult=null;state.pendingRoomResult=null;
   buildArena();makePlayers();state.selected=state.human.pos;rebuildVisuals();setPlanningUI();updateHUD();drawPlannedMove();
-  $('#arena-title').textContent='Set your position.';$('#arena-kicker').textContent='SECTOR 07 · LIVE FEED';$('#sector-label').textContent=`SECTOR ${String(7+(state.round%9)).padStart(2,'0')} / NEON DISTRICT`;
+  $('#arena-title').textContent='Set your position.';$('#arena-kicker').textContent='SECTOR 07 · LIVE FEED';$('#sector-label').textContent=`SECTOR ${String(7+(state.round%9)).padStart(2,'0')} / MINTFIELD ARENA`;
   showBanner('ROUND 01','DEPLOY','Choose your position and lock your shot');
 }
 function setPlanningUI() {
@@ -811,7 +845,7 @@ async function showTVQRCode(){
   $('#tv-qr-link').textContent=tvViewLink;
   $('#tv-qr-note').textContent=/^(localhost|127\.0\.0\.1)$/.test(location.hostname)?'Local address detected. For another device, open Kala using this computer’s network address first.':'Read-only screen · positions stay hidden until all players lock.';
   $('#tv-qr-modal').classList.add('open');
-  try{await QRCode.toCanvas($('#tv-qr-canvas'),tvViewLink,{width:280,margin:2,errorCorrectionLevel:'H',color:{dark:'#071018',light:'#ffffff'}});}
+  try{await QRCode.toCanvas($('#tv-qr-canvas'),tvViewLink,{width:280,margin:2,errorCorrectionLevel:'H',color:{dark:'#0d2d46',light:'#e6fbda'}});}
   catch{toast('Could not create the TV QR code.');}
 }
 $('#show-tv-qr').addEventListener('click',showTVQRCode);
@@ -851,6 +885,7 @@ function animate(now) {
     if(p.human&&state.phase!=='planning'&&state.phase!=='locked')p.visual.scale.setScalar(1+Math.sin(sec*4)*.025);
   }
   const elapsed=now;
+  updateBoundaryPulse(now);
   for(let i=state.beams.length-1;i>=0;i--){const beam=state.beams[i];const remain=beam.until-elapsed;if(remain<0){beam.objects.forEach(o=>{group.remove(o);o.geometry.dispose();o.material.dispose();});state.beams.splice(i,1);}else if(remain<360)beam.objects.forEach(o=>o.material.opacity*=.94);}
   for(let i=state.particles.length-1;i>=0;i--){const p=state.particles[i],t=(now-p.start)/p.life;if(t>=1){group.remove(p.object);p.object.geometry?.dispose();p.object.material?.dispose();state.particles.splice(i,1);continue;}
     if(p.flash){p.object.scale.setScalar(1+t*3);p.object.material.opacity=(1-t)*.55;}

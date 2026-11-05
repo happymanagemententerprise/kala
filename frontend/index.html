@@ -2,15 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <meta name="theme-color" content="#070b14" />
-  <meta name="description" content="KALA — a simultaneous-move neon arena tactics game." />
-  <title>KALA — Neon Arena Tactics</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d2d46" />
+  <meta name="description" content="KALA — a simultaneous-move arena tactics game." />
+  <title>KALA — Arena Tactics</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=DM+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="./styles.css" />
   <link rel="stylesheet" href="./room.css" />
+  <link rel="stylesheet" href="./theme.css" />
 </head>
 <body>
   <main class="shell">
@@ -40,7 +41,7 @@
         <div class="arena-frame" id="arena-frame">
           <div class="frame-corner corner-tl"></div><div class="frame-corner corner-tr"></div><div class="frame-corner corner-bl"></div><div class="frame-corner corner-br"></div>
           <div id="arena-root" aria-label="Game arena. Tap or drag to select position and aim."></div>
-          <div class="arena-topline"><span id="sector-label">SECTOR 07 / NEON DISTRICT</span><span id="wind-label">VECTOR <b>NOMINAL</b></span></div>
+          <div class="arena-topline"><span id="sector-label">SECTOR 07 / MINTFIELD ARENA</span><span id="wind-label">VECTOR <b>NOMINAL</b></span></div>
           <div class="arena-bottomline"><span id="hint-label">TAP ARENA TO POSITION · DRAG TO AIM</span><span id="players-ready">0 / 4 LOCKED</span></div>
           <div id="toast" class="toast" aria-live="polite"></div>
           <div id="round-banner" class="round-banner"><span class="eyebrow">ROUND 01</span><strong>DEPLOY</strong><span>Choose your position and lock your shot</span></div>

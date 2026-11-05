@@ -1,4 +1,4 @@
-# KALA · Neon Arena Tactics
+# KALA · Arena Tactics
 
 Browser based simultaneous turn arena game. The frontend is Vite and Three.js/WebGL. A Node.js WebSocket service handles room codes, presence, turn locks, host actions, and TV viewers. The same Node service serves the built frontend in production.
 

@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-05T02:08:56Z",
+  "title": "Design System: Mintfield Broadcast",
+  "extensions": {
+    "colorMeta": {
+      "deep-space": { "role": "neutral", "displayName": "Deep Space Blue", "canonical": "#0d2d46", "tonalRamp": ["#06121c", "#091c2b", "#0d2d46", "#163952", "#244d66", "#477086", "#8da7b3", "#e6fbda"] },
+      "frosted-mint": { "role": "neutral", "displayName": "Frosted Mint", "canonical": "#e6fbda", "tonalRamp": ["#162719", "#304c2c", "#4d7049", "#6d9366", "#8eb682", "#afd09f", "#cce7bd", "#e6fbda"] },
+      "lemon-chiffon": { "role": "tertiary", "displayName": "Lemon Chiffon", "canonical": "#fff8d3", "tonalRamp": ["#29250d", "#50491b", "#776d2b", "#9e9340", "#c2b65f", "#dfd18a", "#f1e6b5", "#fff8d3"] },
+      "moss-green": { "role": "primary", "displayName": "Moss Green", "canonical": "#85d176", "tonalRamp": ["#172615", "#2c4728", "#42683b", "#58884d", "#70a65f", "#89bf72", "#a9d994", "#def3d4"] },
+      "dusk-blue": { "role": "secondary", "displayName": "Dusk Blue", "canonical": "#3f5ba4", "tonalRamp": ["#11182c", "#1d2947", "#2a3b64", "#374d81", "#49639b", "#6d85b4", "#9eafd0", "#dfe7f5"] },
+      "semantic-coral": { "role": "semantic", "displayName": "Red Team / Critical Coral", "canonical": "#b95f58", "tonalRamp": ["#2d1716", "#512725", "#743633", "#914843", "#aa5a53", "#c17670", "#d7a19b", "#f0d5d2"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Broadcast Display", "purpose": "Arena headlines, modal titles, player names, and numeric hierarchy." },
+      "body": { "displayName": "Field Guide Sans", "purpose": "Manrope for body copy, general interface text, and controls." },
+      "label": { "displayName": "Data Labels", "purpose": "DM Mono only for phase labels, room codes, readouts, and other measured/interface data." }
+    },
+    "shadows": [
+      { "name": "brand-mark", "value": "0 5px 18px #85d17633", "purpose": "Subtle Moss Green emphasis around the compact brand mark." },
+      { "name": "arena-frame", "value": "0 16px 38px #061e3180", "purpose": "Separate the central playfield from the shell." },
+      { "name": "primary-action", "value": "0 5px 12px #85d17644", "purpose": "Small lift for the commit action." },
+      { "name": "modal", "value": "0 18px 54px #051d30b3", "purpose": "Give foreground dialogs clear depth." }
+    ],
+    "motion": [
+      { "name": "safe-boundary-contour-pulse", "value": "1250ms one-pass contour trace", "purpose": "A Moss Green glow and Lemon Chiffon marker trace the safe zone after each resolved volley; skipped under prefers-reduced-motion." },
+      { "name": "control-hover", "value": "180ms–250ms CSS transition", "purpose": "Short color, border, and opacity changes on interactive controls." }
+    ],
+    "breakpoints": [
+      { "name": "tablet", "value": "1050px" },
+      { "name": "mobile", "value": "780px" },
+      { "name": "narrow-mobile", "value": "420px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Lock Action",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Primary action for locking a move or starting a match.",
+      "html": "<button class=\"ds-btn-primary\">LOCK POSITION <span aria-hidden=\"true\">↗</span></button>",
+      "css": ".ds-btn-primary { display: flex; align-items: center; justify-content: space-between; gap: 15px; height: 39px; min-width: 172px; padding: 0 12px 0 16px; border: 1px solid #85d176; border-radius: 7px; background: #85d176; color: #0d2d46; font: 600 11px 'Manrope', 'Segoe UI', sans-serif; letter-spacing: .02em; box-shadow: 0 5px 12px #85d17644; cursor: pointer; transition: background .2s, box-shadow .2s; } .ds-btn-primary:hover { background: #a3e190; box-shadow: 0 5px 16px #85d17666; } .ds-btn-primary:focus-visible { outline: 2px solid #85d176; outline-offset: 3px; } .ds-btn-primary:active { background: #70bd62; }"
+    },
+    {
+      "name": "Room Action",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Secondary room creation, join, and utility action.",
+      "html": "<button class=\"ds-btn-secondary\">CREATE A ROOM</button>",
+      "css": ".ds-btn-secondary { min-height: 34px; padding: 0 10px; border: 1px solid #789274; border-radius: 7px; background: #f7fbe9; color: #0d2d46; font: 500 9px 'Manrope', 'Segoe UI', sans-serif; letter-spacing: .02em; cursor: pointer; transition: border-color .18s, color .18s, background .18s; } .ds-btn-secondary:hover { border-color: #477d3e; color: #285d2e; background: #e7f6dd; } .ds-btn-secondary:focus-visible { outline: 2px solid #85d176; outline-offset: 3px; } .ds-btn-secondary:active { background: #dff2d4; }"
+    },
+    {
+      "name": "Room Code Field",
+      "kind": "input",
+      "refersTo": "input-room-code",
+      "description": "Monospaced room code entry paired with a join action.",
+      "html": "<input class=\"ds-input-room\" aria-label=\"Room code\" placeholder=\"ROOM CODE\" maxlength=\"5\" />",
+      "css": ".ds-input-room { width: 100%; height: 34px; min-width: 0; padding: 0 9px; border: 1px solid #91a98a; border-radius: 7px 0 0 7px; background: #fffdf0; color: #0d2d46; caret-color: #3f5ba4; font: 10px 'DM Mono', monospace; letter-spacing: 1px; } .ds-input-room::placeholder { color: #536d77; opacity: 1; } .ds-input-room:focus { border-color: #3f5ba4; outline: none; } .ds-input-room:focus-visible { outline: 2px solid #85d176; outline-offset: 3px; }"
+    },
+    {
+      "name": "Working Rail",
+      "kind": "card",
+      "refersTo": "panel-working-rail",
+      "description": "Pale working surface for roster, loadout, or settings content.",
+      "html": "<section class=\"ds-rail\"><span class=\"ds-rail-label\">LIVE MATCH</span><strong class=\"ds-rail-value\">ROUND 03</strong></section>",
+      "css": ".ds-rail { display: flex; flex-direction: column; gap: 12px; padding: 16px 15px; border: 1px solid #c1d5b7; border-radius: 12px; background: #e6fbda; color: #0d2d46; font-family: 'Manrope', 'Segoe UI', sans-serif; } .ds-rail-label { color: #405976; font: 9px 'DM Mono', monospace; letter-spacing: 1.4px; text-transform: uppercase; } .ds-rail-value { font: 700 30px 'Barlow Condensed', sans-serif; }"
+    },
+    {
+      "name": "Utility Navigation Control",
+      "kind": "nav",
+      "description": "Compact outlined utility action in the dark top bar.",
+      "html": "<button class=\"ds-nav-control\" aria-label=\"TV view\">▣</button>",
+      "css": ".ds-nav-control { width: 31px; height: 31px; border: 1px solid #55758a; border-radius: 9px; background: transparent; color: #e6fbda; font: 15px 'Manrope', 'Segoe UI', sans-serif; cursor: pointer; transition: border-color .2s, color .2s, background .2s; } .ds-nav-control:hover, .ds-nav-control[aria-current='page'] { border-color: #85d176; color: #85d176; background: #163b53; } .ds-nav-control:focus-visible { outline: 2px solid #85d176; outline-offset: 3px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Mintfield Broadcast",
+    "overview": "Kala’s interface pairs a deep-space broadcast shell with light, practical work surfaces. The dark arena and frame hold the match in focus; pale mint and lemon rails keep roster, loadout, and controls readable. The visual voice is ‘Fresh, light field-guide colors; calm, precise controls.’\n\nDisplay type gives match headlines and player names a condensed, high-energy voice. Manrope keeps body copy and controls fresh and readable; DM Mono is reserved for phase labels, room codes, readouts, and other measured interface data. The game keeps planned positions private until commitment, and the read-only TV view preserves that privacy. A lemon marker tracing the moss safe-zone contour once after each resolved volley makes the arena’s change legible.",
+    "keyCharacteristics": [
+      "Deep Space shell with light mint and lemon working rails",
+      "Condensed display typography paired with monospaced data labels",
+      "Clear separation between hidden planning and revealed resolution",
+      "A single contour-tracing pulse at safe-zone transitions"
+    ],
+    "rules": [
+      { "name": "The Semantic Coral Rule", "body": "Coral is reserved for Red team identity and critical hit or danger states; it is not a general accent.", "section": "colors" },
+      { "name": "The Light-Rail Contrast Rule", "body": "Dusk Blue belongs on light surfaces for secondary content. Keep dark-surface text and critical state colors distinct and readable.", "section": "colors" },
+      { "name": "The Role Pairing Rule", "body": "Use Barlow Condensed for display, Manrope for body/UI and controls, and DM Mono only for measured/interface data such as phase labels, room codes, and readouts.", "section": "typography" },
+      { "name": "The Tonal-Zone Rule", "body": "Use surface contrast and borders to organize the rails; reserve stronger shadow for overlays and the central arena.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep the shell and arena grounded in Deep Space Blue while using the pale rails as readable working surfaces.",
+      "Do use Moss Green for safe, ready, confirmed, and focused states.",
+      "Do keep phase labels, room codes, and measured values in DM Mono.",
+      "Do preserve hidden positions through planning and reveal only after all living players lock.",
+      "Do honor reduced-motion preferences for the contour pulse."
+    ],
+    "donts": [
+      "Don't use coral as a general-purpose accent; reserve it for Red team and critical/danger semantics.",
+      "Don't place Dusk Blue text on dark grounds where the contrast is weak.",
+      "Don't use the contour pulse to expose planned positions or aim lines.",
+      "Don't replace the three-part desktop hierarchy with an equal-weight grid."
+    ]
+  }
+}
