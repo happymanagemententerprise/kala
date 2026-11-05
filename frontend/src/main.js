@@ -47,7 +47,7 @@ ambient.position.z = -8; scene.add(ambient);
 
 const state = {
   round: 1, mode: 'ffa', botCount: 3, roomBotCount: 2, roundLimit: 7, zone: 1, active: true, phase: 'planning',
-  selected: null, aim: 0, locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
+  selected: null, aim: 0, laserVisible: false, laserHandlePos: null, previewObjects: [], locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
   online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null,
@@ -178,7 +178,7 @@ function makePlayers() {
 
 function rebuildVisuals() {
   state.boundaryPulse = null;
-  state.plannedToken = null;
+  state.plannedToken = null; state.previewObjects=[]; state.laserHandlePos=null;
   while (group.children.length) {
     const child = group.children.pop();
     if (child.geometry) child.geometry.dispose();
@@ -284,25 +284,28 @@ function makeTextSprite(text, color) {
 }
 
 function drawPlannedMove() {
-  if (state.tv || !state.human?.human || !state.human.alive || state.phase !== 'planning' || !state.selected) {
-    removePlanned();
-    return;
-  }
-  if (state.plannedToken?.parent) {
-    state.plannedToken.position.set(state.selected.x,state.selected.y,.8);
-    return;
-  }
-  const preview={...state.human,pos:state.selected,visual:null,visualParts:null};
-  addToken(preview);
-  state.plannedToken=preview.visual;
-  state.plannedToken.userData.planned=true;
+  if (state.tv || !state.human?.human || !state.human.alive || state.phase !== 'planning' || !state.selected) { removePlanned(); return; }
+  if (!state.plannedToken?.parent) {
+    const preview={...state.human,pos:state.selected,visual:null,visualParts:null};
+    addToken(preview);state.plannedToken=preview.visual;state.plannedToken.userData.planned=true;
+  } else state.plannedToken.position.set(state.selected.x,state.selected.y,.8);
+  for(const object of state.previewObjects){group.remove(object);object.geometry?.dispose();object.material?.dispose();}
+  state.previewObjects=[];state.laserHandlePos=null;
+  if(!state.laserVisible)return;
+  const path=getShotPath(state.selected,state.aim,state.humanWeapon==='ricochet'&&state.human.kills>=3);
+  for(const segment of path){const beam=makeLine([segment.a,segment.b],palette.moss,.98,1);beam.position.z=.52;beam.userData.planned=true;state.previewObjects.push(beam);}
+  const handlePos=path[0]?.b||add(state.selected,v(Math.cos(state.aim)*3,Math.sin(state.aim)*3));
+  state.laserHandlePos=handlePos.clone();
+  const glow=circleMesh(.34,palette.moss,.28,.56);glow.position.set(handlePos.x,handlePos.y,.56);glow.userData.planned=true;group.add(glow);state.previewObjects.push(glow);
+  const handle=circleMesh(.16,palette.lemon,.98,.58);handle.position.set(handlePos.x,handlePos.y,.58);handle.userData.planned=true;group.add(handle);state.previewObjects.push(handle);
 }
 function removePlanned() {
   for (let i = group.children.length - 1; i >= 0; i--) if (group.children[i].userData.planned) {
-    const obj = group.children[i]; group.remove(obj); obj.geometry?.dispose(); obj.material?.dispose();
+    const obj = group.children[i]; group.remove(obj); obj.geometry?.dispose(); if(Array.isArray(obj.material))obj.material.forEach(m=>m.dispose());else obj.material?.dispose();
   }
-  state.plannedToken=null;
+  state.previewObjects=[];state.plannedToken=null;state.laserHandlePos=null;
 }
+
 function addBeamSegment(a, b, color, faint = false) {
   const c = new THREE.Color(color);
   const outer = makeLine([a,b], c, faint ? .18 : .24, 1); outer.position.z = .42;
@@ -471,7 +474,7 @@ function nextRound() {
   state.round++;
   for (const p of state.players) { p.move=null; if(p.alive) p.pos=clampInsideArena(p.pos); }
   buildArena();
-  state.phase='planning'; state.locked=false; state.selected=state.human.alive?state.human.pos:null; state.aim=0; state.lockedMoves.clear();
+  state.phase='planning'; state.locked=false; state.selected=state.human.alive?state.human.pos:null; state.aim=0;state.laserVisible=false; state.lockedMoves.clear();
   rebuildVisuals();
   setPlanningUI();
   $('#arena-title').textContent=state.human.alive?'Set your position.':'Bots are taking their positions.';
@@ -502,7 +505,7 @@ function newMatch() {
   $('#new-match').disabled=false;
   $('#room-open').textContent='＋  CREATE A ROOM';
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('tv');cleanUrl.searchParams.delete('room');history.replaceState({},'',cleanUrl);
-  state.round=1;state.zone=1;state.phase='planning';state.locked=false;state.selected=null;state.aim=0;state.lockedMoves.clear();state.beams=[];state.particles=[];state.lastResult=null;state.pendingRoomResult=null;
+  state.round=1;state.zone=1;state.phase='planning';state.locked=false;state.selected=null;state.aim=0;state.laserVisible=false;state.lockedMoves.clear();state.beams=[];state.particles=[];state.lastResult=null;state.pendingRoomResult=null;
   buildArena();makePlayers();state.selected=state.human.pos;rebuildVisuals();setPlanningUI();updateHUD();drawPlannedMove();
   $('#arena-title').textContent='Set your position.';$('#arena-kicker').textContent='SECTOR 07 · LIVE FEED';$('#sector-label').textContent=`SECTOR ${String(7+(state.round%9)).padStart(2,'0')} / MINTFIELD ARENA`;
   showBanner('ROUND 01','DEPLOY','Choose your position and lock your shot');
@@ -514,7 +517,7 @@ function setPlanningUI() {
   $('#fire-label').textContent=state.human.alive?'LOCK POSITION':'OBSERVE';
   $('#fire-button').disabled=!state.human.alive;
   $('#undo-button').disabled=false;
-  $('#hint-label').textContent=state.human.alive?'TAP TO MOVE · DRAG FROM YOUR TOKEN TO AIM':'BOTS ARE PLANNING · POSITIONS HIDDEN';
+  $('#hint-label').textContent=state.human.alive?'TAP ONCE TO POSITION · DOUBLE-TAP FOR LASER':'BOTS ARE PLANNING · POSITIONS HIDDEN';
 }
 function updateHUD() {
   $('#round-number').textContent=String(state.round).padStart(2,'0');$('#round-total').textContent=state.roundLimit?String(state.roundLimit):'∞';
@@ -554,7 +557,7 @@ function beginOnlineBoard(payload) {
   state.human = state.players.find(p => p.human) || { id: null, alive: false, kills: 0, pos: v(0,0), human: false };
   state.botCount = Math.max(1, state.players.length - 1);
   state.phase = payload.phase === 'revealing' ? 'planning' : payload.phase || 'planning';state.roomPhase=state.phase;
-  state.locked = false; state.selected = state.human.alive ? state.human.pos : null;
+  state.locked = false; state.selected = state.human.alive ? state.human.pos : null; state.laserVisible=false;
   state.lockedMoves = new Map(); state.beams = []; state.particles = []; state.lastResult = null; state.pendingRoomResult=null;
   seeded(payload.seed); buildArena(); rebuildVisuals(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
   document.body.classList.toggle('tv-view', state.tv);
@@ -587,6 +590,15 @@ function acceptRoomRound(payload) {
   showBanner(`ROUND ${String(state.round).padStart(2,'0')}`, 'DEPLOY', 'Moves stay hidden until every operative locks');
 }
 
+function showEntryScreen(){ $('#start-screen').hidden=false; document.body.classList.remove('tv-view'); document.body.classList.add('entry-open'); }
+function hideEntryScreen(){ $('#start-screen').hidden=true; document.body.classList.remove('entry-open'); }
+function applyEntrySettings(){
+  $('#callsign').value=$('#entry-name').value.trim()||'ROOKIE';
+  state.roomBotCount=Number($('#entry-bot-count').textContent)||0;state.botCount=Math.max(1,state.roomBotCount);state.roundLimit=Number($('#entry-round-limit').value);
+  const mode=document.querySelector('[data-entry-mode].active')?.dataset.entryMode||'ffa';state.mode=mode;
+  $('#bot-count').textContent=String(state.botCount).padStart(2,'0');$('#round-limit').value=String(state.roundLimit);
+  document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+}
 function openRoomModal() { $('#room-error').textContent = ''; $('#room-modal').classList.add('open'); }
 function paintRoomState(message) {
   if (message.code) state.roomCode = message.code;
@@ -631,18 +643,19 @@ function paintRoomState(message) {
 }
 function handleRoomMessage(message) {
   if (message.type === 'connected') { state.clientId = message.clientId; return; }
-  if (message.type === 'error') { $('#room-error').textContent = message.message; toast(message.message); return; }
+  if (message.type === 'error') { $('#room-error').textContent = message.message;$('#entry-error').textContent=message.message; toast(message.message); return; }
   if (message.type === 'joined') {
     state.clientId = message.clientId; state.roomCode = message.code; state.roomRole = message.role;
-    if (message.role === 'player') { document.body.classList.remove('tv-view'); $('#room-open').textContent='▣  ROOM LOBBY'; openRoomModal(); }
+    if (message.role === 'player') { document.body.classList.remove('tv-view'); hideEntryScreen(); $('#room-open').textContent='▣  ROOM LOBBY'; openRoomModal(); }
     else {
-      state.online = false; state.tv = true; document.body.classList.add('tv-view'); $('#room-modal').classList.remove('open');
+      state.online = false; state.tv = true; hideEntryScreen(); document.body.classList.add('tv-view'); $('#room-modal').classList.remove('open');
       const url=new URL(location.href);url.searchParams.delete('room');url.searchParams.set('tv',message.code);history.replaceState({},'',url);
     }
     return;
   }
   if (message.type === 'room-state') {
     state.roomHostId = message.hostId || state.roomHostId;
+    if(message.mode){state.mode=message.mode;document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));}
     state.roomPhase=message.phase;
     if (!state.tv && state.roomRole === 'player') paintRoomState(message);
     if (state.tv && !message.snapshot && !state.online) {
@@ -714,7 +727,7 @@ function returnToRoomLobby(message) {
 }
 function exitRoom(message) {
   const socket=state.roomSocket;state.roomSocket=null;state.roomCode=null;state.roomHostId=null;state.roomRole=null;state.roomPhase=null;
-  socket?.close(1000,'Room ended');newMatch();
+  socket?.close(1000,'Room ended');newMatch();showEntryScreen();
   if(message)toast(message);
 }
 function onReveal(moves) {
@@ -731,14 +744,14 @@ async function connectRoom(action, code = '') {
   const name = $('#callsign').value.trim() || 'ROOKIE';
   if (action === 'create-room') {
     try {
-      const response = await fetch('/api/rooms', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({name}) });
+      const response = await fetch('/api/rooms', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({name,botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode}) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Room creation failed.');
       code = result.code;
-    } catch (error) { $('#room-error').textContent=error.message;return; }
+    } catch (error) { $('#room-error').textContent=error.message;$('#entry-error').textContent=error.message;return; }
     action = 'join-room';
   }
-  if (!code) { $('#room-error').textContent='Enter a room code first.';return; }
+  if (!code) { $('#room-error').textContent='Enter a room code first.';$('#entry-error').textContent='Enter a room code first.';return; }
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const role = action === 'watch-room' ? 'viewer' : 'player';
   const oldSocket=state.roomSocket;
@@ -747,7 +760,7 @@ async function connectRoom(action, code = '') {
   if(oldSocket&&oldSocket.readyState<WebSocket.CLOSING)oldSocket.close(1000,'Changing room');
   socket.addEventListener('message',event=>{try{handleRoomMessage(JSON.parse(event.data));}catch{}});
   socket.addEventListener('close',()=>{if(state.roomSocket===socket)toast('Room connection closed.');});
-  socket.addEventListener('error',()=>{$('#room-error').textContent='Could not connect to the Kala room server.';});
+  socket.addEventListener('error',()=>{$('#room-error').textContent='Could not connect to the Kala room server.';$('#entry-error').textContent='Could not connect to the Kala room server.';});
 }
 
 function showBanner(kicker,title,copy) {
@@ -772,25 +785,34 @@ function canvasPoint(event) {
   const rect=renderer.domElement.getBoundingClientRect();
   return v(((event.clientX-rect.left)/rect.width-.5)*view.w,(.5-(event.clientY-rect.top)/rect.height)*view.h);
 }
-let pointerStart=null, pointerMoved=false, pointerMode='position';
+let pointerStart=null, pointerMoved=false, pointerMode='position', lastTapAt=0, lastTapPoint=null;
+renderer.domElement.style.touchAction='none';
 renderer.domElement.addEventListener('pointerdown',event=>{
   if(state.phase!=='planning'||state.locked||!state.human.alive)return;
-  event.preventDefault();renderer.domElement.setPointerCapture(event.pointerId);
-  const p=canvasPoint(event);if(!pointInPolygon(p,state.arena)||state.obstacles.some(o=>pointInPolygon(p,o.points))){toast('Position must be inside the safe zone.');return;}
-  pointerStart=p;pointerMoved=false;
-  pointerMode=state.selected && dist(p,state.selected)<.62 ? 'aim' : 'position';
-  if(pointerMode==='position'){state.selected=p;const target=state.players.find(q=>q.alive&&!q.human&&(state.mode!=='teams'||q.team!==state.human.team));if(target)state.aim=Math.atan2(target.pos.y-p.y,target.pos.x-p.x);}
-  $('#arena-title').textContent='Move staged. Aim stays hidden.';
-  $('#hint-label').textContent='POSITION STAGED · DRAG TO AIM · STILL HIDDEN';
-  drawPlannedMove();
+  const p=canvasPoint(event);
+  if(state.laserVisible&&state.laserHandlePos&&dist(p,state.laserHandlePos)<.8){
+    event.preventDefault();renderer.domElement.setPointerCapture(event.pointerId);pointerStart=p;pointerMoved=false;pointerMode='aim';return;
+  }
+  if(!pointInPolygon(p,state.arena)||state.obstacles.some(o=>pointInPolygon(p,o.points))){toast('Position must be inside the safe zone.');return;}
+  event.preventDefault();renderer.domElement.setPointerCapture(event.pointerId);pointerStart=p;pointerMoved=false;pointerMode='position';
 });
 renderer.domElement.addEventListener('pointermove',event=>{
-  if(!pointerStart||!state.selected)return;
-  const p=canvasPoint(event);if(dist(pointerStart,p)>0.12)pointerMoved=true;
-  if(pointerMoved){const origin=pointerMode==='aim'?state.selected:pointerStart; if(pointerMode==='position')state.selected=pointerStart; state.aim=Math.atan2(p.y-origin.y,p.x-origin.x); drawPlannedMove();}
+  if(!pointerStart)return;const p=canvasPoint(event);
+  if(pointerMode==='position'){if(dist(pointerStart,p)>.14)pointerMoved=true;return;}
+  if(!state.selected)return;if(dist(pointerStart,p)>.10)pointerMoved=true;
+  if(pointerMoved){state.aim=Math.atan2(p.y-state.selected.y,p.x-state.selected.x);drawPlannedMove();}
 });
-renderer.domElement.addEventListener('pointerup',()=>{pointerStart=null;});
-renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;});
+renderer.domElement.addEventListener('pointerup',event=>{
+  if(!pointerStart)return;const p=canvasPoint(event),moved=pointerMoved,mode=pointerMode;pointerStart=null;pointerMoved=false;
+  if(mode==='aim'){if(moved){$('#hint-label').textContent='AIM SET · DOUBLE-TAP YOUR TOKEN TO HIDE THE LASER';$('#arena-title').textContent='Laser direction set.';}return;}
+  if(moved)return;
+  const now=performance.now(),same=state.selected&&dist(p,state.selected)<.7&&lastTapPoint&&dist(p,lastTapPoint)<.7;
+  if(same&&now-lastTapAt<420){state.laserVisible=!state.laserVisible;lastTapAt=0;lastTapPoint=null;drawPlannedMove();$('#hint-label').textContent=state.laserVisible?'LASER READY · DRAG THE BRIGHT TIP TO AIM':'LASER HIDDEN · DOUBLE-TAP YOUR TOKEN TO AIM';$('#arena-title').textContent=state.laserVisible?'Drag the laser tip to aim.':'Position locked in.';return;}
+  state.selected=p;state.laserVisible=false;lastTapAt=now;lastTapPoint=p;
+  const target=state.players.find(q=>q.alive&&!q.human&&(state.mode!=='teams'||q.team!==state.human.team));if(target)state.aim=Math.atan2(target.pos.y-p.y,target.pos.x-p.x);
+  drawPlannedMove();$('#arena-title').textContent='Position set.';$('#hint-label').textContent='POSITION SET · DOUBLE-TAP YOUR TOKEN TO SHOW THE LASER';
+});
+renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;pointerMoved=false;});
 
 $('#fire-button').addEventListener('click',()=>{
   if(state.phase==='finished'){newMatch();return;}
@@ -807,11 +829,12 @@ $('#fire-button').addEventListener('click',()=>{
     sendRoom({type:'move',move:{pos:{x:state.selected.x,y:state.selected.y},aim:state.aim,weapon:state.humanWeapon||'standard'}});
   } else setTimeout(()=>{if(state.phase==='locked')resolveVolley();},520);
 });
-$('#undo-button').addEventListener('click',()=>{if(state.phase!=='planning'||state.locked)return;state.selected=state.human.pos;state.aim=0;drawPlannedMove();toast('Move reset.');});
+$('#undo-button').addEventListener('click',()=>{if(state.phase!=='planning'||state.locked)return;state.selected=state.human.pos;state.aim=0;state.laserVisible=false;drawPlannedMove();toast('Move reset.');});
 $('#new-match').addEventListener('click',()=>{if(state.roomRole){toast('Use the room controls to start another match.');return;}newMatch();toast('New match initialized.');});
 document.querySelectorAll('.mode-button').forEach(button=>button.addEventListener('click',()=>{
-  if(state.online||state.round!==1||state.phase!=='planning'){toast('Mode changes start a new match.');return;}
-  state.mode=button.dataset.mode;document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b===button));newMatch();
+  if(state.online||(state.roomRole==='player'&&state.roomPhase!=='lobby')||state.round!==1){toast('Mode changes are available before the match starts.');return;}
+  state.mode=button.dataset.mode;document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b===button));
+  if(state.roomRole==='player')sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode});else newMatch();
 }));
 $('#less-bots').addEventListener('click',()=>{if(state.online||state.roomRole)return;state.botCount=clamp(state.botCount-1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
 $('#more-bots').addEventListener('click',()=>{if(state.online||state.roomRole)return;state.botCount=clamp(state.botCount+1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
@@ -826,6 +849,14 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').cl
 $('#fullscreen-button').addEventListener('click',()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.();});
 $('#sound-button').addEventListener('click',()=>{state.sound=!state.sound;$('#sound-button').style.color=state.sound?'var(--cyan)':'#71808e';toast(state.sound?'Audio cues enabled.':'Audio cues muted.');});
 
+$('#entry-bots-less').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)-1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
+$('#entry-bots-more').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)+1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
+document.querySelectorAll('[data-entry-mode]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-entry-mode]').forEach(b=>b.classList.toggle('active',b===button));}));
+$('#entry-create-room').addEventListener('click',()=>{applyEntrySettings();$('#entry-error').textContent='';connectRoom('create-room');});
+$('#entry-join-room').addEventListener('click',()=>{applyEntrySettings();$('#entry-error').textContent='';connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
+$('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#entry-join-room').click();});
+$('#entry-tv-view').addEventListener('click',()=>startTVRoom());
+$('#entry-play-solo').addEventListener('click',()=>{applyEntrySettings();hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
 $('#room-open').addEventListener('click',()=>{
   if(state.roomRole==='player'&&state.roomCode&&state.roomSocket?.readyState===WebSocket.OPEN){$('#room-choose').hidden=true;$('#room-lobby').hidden=false;openRoomModal();return;}
   state.roomRole=null;$('#room-choose').hidden=false;$('#room-lobby').hidden=true;openRoomModal();
@@ -840,7 +871,7 @@ $('#join-room').addEventListener('click',()=>connectRoom('join-room',$('#room-co
 $('#quick-join').addEventListener('click',()=>connectRoom('join-room',$('#quick-room-code').value.trim().toUpperCase()));
 $('#quick-room-code').addEventListener('keydown',e=>{if(e.key==='Enter')connectRoom('join-room',$('#quick-room-code').value.trim().toUpperCase());});
 const openTV = () => {
-  if(state.tv){sendRoom({type:'leave-room'});state.roomSocket?.close();state.roomSocket=null;state.roomCode=null;state.roomRole=null;newMatch();return;}
+  if(state.tv){sendRoom({type:'leave-room'});state.roomSocket?.close();state.roomSocket=null;state.roomCode=null;state.roomRole=null;newMatch();showEntryScreen();return;}
   const code=state.roomCode||$('#quick-room-code').value.trim().toUpperCase()||$('#room-code').value.trim().toUpperCase();
   if(code){state.tv=true;state.phase='planning';document.body.classList.add('tv-view');rebuildVisuals();$('#phase-label').textContent='CONNECTING TO TV FEED';connectRoom('watch-room',code);}
   else {startTVRoom();}
@@ -911,8 +942,8 @@ $('#leave-room').addEventListener('click',()=>{
 $('#room-modal .room-close').addEventListener('click',()=>$('#room-modal').classList.remove('open'));
 
 const startupQuery=new URLSearchParams(location.search);
-if(startupQuery.has('tv')) { $('#quick-room-code').value=startupQuery.get('tv'); connectRoom('watch-room',startupQuery.get('tv').toUpperCase()); }
-else if(startupQuery.has('room')) { $('#room-code').value=startupQuery.get('room'); connectRoom('join-room',startupQuery.get('room').toUpperCase()); }
+if(startupQuery.has('tv')) { $('#start-screen').hidden=true;document.body.classList.add('tv-view');$('#quick-room-code').value=startupQuery.get('tv');connectRoom('watch-room',startupQuery.get('tv').toUpperCase()); }
+else if(startupQuery.has('room')) { $('#entry-room-code').value=startupQuery.get('room'); }
 
 let audioContext=null;
 function playShotSound(count) {

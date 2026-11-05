@@ -112,7 +112,8 @@ const httpServer=createServer(async(req,res)=>{
   const url=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
   if(req.method==='GET'&&url.pathname==='/healthz'){res.writeHead(200,{'content-type':'text/plain'});res.end('ok');return;}
   if(req.method==='POST'&&url.pathname==='/api/rooms'){
-    const room=makeRoom();rooms.set(room.code,room);json(res,{code:room.code},201);return;
+    let config={};try{const chunks=[];for await(const chunk of req)chunks.push(chunk);config=JSON.parse(Buffer.concat(chunks).toString()||'{}');}catch{json(res,{error:'Invalid room setup.'},400);return;}
+    const room=makeRoom();room.botCount=Math.max(0,Math.min(maxPlayers,Number(config.botCount??room.botCount)||0));room.roundLimit=[0,5,7,10].includes(Number(config.roundLimit))?Number(config.roundLimit):7;room.mode=config.mode==='teams'?'teams':'ffa';rooms.set(room.code,room);json(res,{code:room.code},201);return;
   }
   if(development){res.writeHead(302,{location:`http://localhost:5173${req.url||'/'}`,'cache-control':'no-store'});res.end();return;}
   try{
@@ -158,7 +159,7 @@ wss.on('connection',(socket,req,code)=>{
     if(msg.type==='set-match-options'){
       if(!hostOnly(socket,current)||current.phase!=='lobby')return;
       current.botCount=Math.max(0,Math.min(maxPlayers-current.players.size,Number(msg.botCount)||0));
-      current.roundLimit=[0,5,7,10].includes(Number(msg.roundLimit))?Number(msg.roundLimit):current.roundLimit;sendRoomState(current);return;
+      current.roundLimit=[0,5,7,10].includes(Number(msg.roundLimit))?Number(msg.roundLimit):current.roundLimit;if(msg.mode==='teams'||msg.mode==='ffa')current.mode=msg.mode;sendRoomState(current);return;
     }
     if(msg.type==='set-ready'){
       const player=current.players.get(socket);if(!player||current.phase!=='lobby'||socket.id===current.hostId)return;
