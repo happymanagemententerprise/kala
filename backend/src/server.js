@@ -13,12 +13,16 @@ const makeCode = () => Array.from(randomBytes(5), byte => alphabet[byte % alphab
 const json = (res, body, status = 200) => { res.writeHead(status, { 'content-type':'application/json; charset=utf-8', 'cache-control':'no-store' });res.end(JSON.stringify(body)); };
 const send = (client, message) => { if (client.readyState === WebSocket.OPEN) client.send(JSON.stringify(message)); };
 const listPlayers = room => [...room.players.values()].map(p => ({ ...p }));
+function visiblePlayers(room,recipientId=null) {
+  const reveal=room.revealedMoves;
+  return listPlayers(room).map(player=>reveal||player.id===recipientId?player:{...player,pos:null});
+}
 function broadcast(room, message) {
   const payload = JSON.stringify(message);
   for (const client of [...room.players.keys(), ...room.viewers]) if (client.readyState === WebSocket.OPEN) client.send(payload);
 }
-function roomInfo(room) {
-  return { type:'room-state', code:room.code, hostId:room.hostId, players:listPlayers(room), phase:room.phase, mode:room.game?.mode||room.mode, round:room.game?.round||0, watchers:room.viewers.size };
+function roomInfo(room,recipientId=null) {
+  return { type:'room-state', code:room.code, hostId:room.hostId, players:visiblePlayers(room,recipientId), phase:room.phase, mode:room.game?.mode||room.mode, round:room.game?.round||0, watchers:room.viewers.size };
 }
 function isWinner(players, mode) {
   const alive=players.filter(p=>p.alive);
@@ -26,21 +30,29 @@ function isWinner(players, mode) {
 }
 function makeRoom() {
   let code;do code=makeCode();while(rooms.has(code));
-  return {code,hostId:null,players:new Map(),viewers:new Set(),phase:'lobby',mode:'ffa',game:null,nextTimer:null,turnTimer:null};
+  return {code,hostId:null,players:new Map(),viewers:new Set(),phase:'lobby',mode:'ffa',game:null,revealedMoves:false,nextTimer:null,turnTimer:null};
 }
 function closeRoomIfEmpty(room) {
   if(room.players.size||room.viewers.size)return;
   clearTimeout(room.nextTimer);clearTimeout(room.turnTimer);rooms.delete(room.code);
 }
-function sendRoomState(room) { broadcast(room,roomInfo(room)); }
+function sendRoomState(room) {
+  for(const socket of room.players.keys())send(socket,roomInfo(room,socket.id));
+  for(const socket of room.viewers)send(socket,roomInfo(room));
+}
+function broadcastMatchState(room,type) {
+  for(const socket of room.players.keys())send(socket,{type,...snapshot(room,socket.id),hostId:room.hostId,code:room.code});
+  for(const socket of room.viewers)send(socket,{type,...snapshot(room),hostId:room.hostId,code:room.code});
+}
 function revealIfReady(room) {
   if(room.phase!=='planning'||!room.game)return;
   const alive=[...room.players.values()].filter(p=>p.alive).length;
   if(room.game.moves.size<alive)return;
-  clearTimeout(room.turnTimer);room.phase='revealing';
+  clearTimeout(room.turnTimer);room.phase='revealing';room.revealedMoves=true;
+  // Reveal the simultaneous move set only after every living player has locked.
   broadcast(room,{type:'reveal-moves',round:room.game.round,moves:Object.fromEntries(room.game.moves)});
   room.turnTimer=setTimeout(()=>{
-    if(room.phase==='revealing'){room.phase='planning';room.game.moves.clear();broadcast(room,{type:'turn-timeout',round:room.game.round});schedulePlanTimeout(room);}
+    if(room.phase==='revealing'){room.phase='planning';room.revealedMoves=false;room.game.moves.clear();broadcast(room,{type:'turn-timeout',round:room.game.round});schedulePlanTimeout(room);}
   },120_000);
 }
 function schedulePlanTimeout(room) {
@@ -59,11 +71,15 @@ function removePlayer(socket) {
   const room=socket.room;if(!room)return;
   if(socket.role==='player'){
     const player=room.players.get(socket);if(player&&room.game)player.alive=false;
+    room.game?.moves.delete(socket.id);
     room.players.delete(socket);
     if(room.hostId===socket.id){room.hostId=room.players.keys().next().value?.id||null;const next=room.players.get([...room.players.keys()].find(c=>c.id===room.hostId));if(next)next.ready=true;}
   }
   room.viewers.delete(socket);socket.room=null;socket.role='guest';
-  revealIfReady(room);sendRoomState(room);closeRoomIfEmpty(room);
+  if(room.phase==='revealing'&&room.game){
+    broadcast(room,{type:'reveal-moves',round:room.game.round,moves:Object.fromEntries(room.game.moves)});
+  }else revealIfReady(room);
+  sendRoomState(room);closeRoomIfEmpty(room);
 }
 function startGame(room,mode) {
   const players=listPlayers(room),radius=4.4;
@@ -71,12 +87,12 @@ function startGame(room,mode) {
     const angle=-Math.PI/2+Math.PI*2*i/players.length;p.alive=true;p.kills=0;p.pos={x:Math.cos(angle)*radius,y:Math.sin(angle)*radius};
     const socket=[...room.players.keys()].find(client=>client.id===p.id);if(socket)room.players.set(socket,p);
   });
-  room.mode=mode==='teams'?'teams':'ffa';room.game={mode:room.mode,round:1,seed:randomInt(1,0x7fffffff),moves:new Map()};room.phase='planning';schedulePlanTimeout(room);
-  broadcast(room,{type:'match-start',...snapshot(room),hostId:room.hostId,code:room.code});sendRoomState(room);
+  room.mode=mode==='teams'?'teams':'ffa';room.game={mode:room.mode,round:1,seed:randomInt(1,0x7fffffff),moves:new Map()};room.revealedMoves=false;room.phase='planning';schedulePlanTimeout(room);
+  broadcastMatchState(room,'match-start');sendRoomState(room);
 }
-function snapshot(room) {
+function snapshot(room,recipientId=null) {
   if(!room.game)return null;
-  return {mode:room.game.mode,seed:room.game.seed,round:room.game.round,phase:room.phase,players:listPlayers(room),moves:room.phase==='revealing'?Object.fromEntries(room.game.moves):undefined,locked:room.game.moves.size};
+  return {mode:room.game.mode,seed:room.game.seed,round:room.game.round,phase:room.phase,players:visiblePlayers(room,recipientId),moves:room.revealedMoves?Object.fromEntries(room.game.moves):undefined,locked:room.game.moves.size};
 }
 function hostOnly(socket,room) { return socket.role==='player'&&socket.id===room.hostId; }
 
@@ -144,7 +160,7 @@ wss.on('connection',(socket,req,code)=>{
     }
     if(msg.type==='back-to-lobby'){
       if(!hostOnly(socket,current)||current.phase==='lobby')return;
-      clearTimeout(current.turnTimer);clearTimeout(current.nextTimer);current.phase='lobby';current.game=null;
+      clearTimeout(current.turnTimer);clearTimeout(current.nextTimer);current.phase='lobby';current.game=null;current.revealedMoves=false;
       for(const player of current.players.values()){player.alive=true;player.kills=0;player.pos=null;player.ready=player.id===current.hostId;}
       broadcast(current,{type:'back-to-lobby',hostId:current.hostId,players:listPlayers(current),code:current.code});sendRoomState(current);return;
     }
@@ -179,12 +195,12 @@ wss.on('connection',(socket,req,code)=>{
       const alive=listPlayers(current).filter(p=>p.alive);let winner=null;
       if(isWinner(listPlayers(current),current.game.mode))winner=alive.length?current.game.mode==='teams'?`${alive[0].team.toUpperCase()} TEAM`:alive[0].name:'DRAW';
       current.phase=winner?'finished':'resolving';
-      broadcast(current,{type:'round-result',players:listPlayers(current),winner,round:current.game.round});sendRoomState(current);
+      broadcast(current,{type:'round-result',players:listPlayers(current),moves:Object.fromEntries(current.game.moves),winner,round:current.game.round});sendRoomState(current);
       clearTimeout(current.turnTimer);
       if(!winner)current.nextTimer=setTimeout(()=>{
         if(!rooms.has(current.code)||current.phase!=='resolving')return;
-        current.game.round++;current.game.seed=randomInt(1,0x7fffffff);current.game.moves=new Map();current.phase='planning';schedulePlanTimeout(current);
-        broadcast(current,{type:'round-start',...snapshot(current),hostId:current.hostId});sendRoomState(current);
+        current.game.round++;current.game.seed=randomInt(1,0x7fffffff);current.game.moves=new Map();current.revealedMoves=false;current.phase='planning';schedulePlanTimeout(current);
+        broadcastMatchState(current,'round-start');sendRoomState(current);
       },2100);
     }
     if(msg.type==='leave-room')socket.close(1000,'Left room');

@@ -193,20 +193,115 @@ body.tv-view .arena-footer { height: 30px; }
   .left-rail, .right-rail { padding: 13px 11px; }
 }
 @media (max-width: 780px) {
-  .layout { display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; }
+  .shell { padding-inline: 12px; }
+  .shell { padding-top: env(safe-area-inset-top); }
+  .topbar { min-height: 58px; height: 58px; gap: 8px; }
+  .top-center { min-width: 0; flex: 1; justify-content: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 7px; letter-spacing: .06em; }
+  .top-actions { gap: 5px; }
+  .icon-button { width: 44px; height: 44px; flex: 0 0 44px; }
+  .layout { display: grid; grid-template-columns: minmax(0,1fr); gap: 9px; padding: 9px 0 12px; min-height: 0; }
   .right-rail { display: contents; }
-  .right-rail > .room-entry { order: -1; margin: 0; padding: 12px; border: 1px solid #b7d3aa; background: #dff2d4; }
+  .right-rail > .room-entry { order: -1; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.18fr); align-items: center; gap: 7px 9px; margin: 0; padding: 9px; border: 1px solid #b7d3aa; background: #dff2d4; }
+  .right-rail > .room-entry .section-label { grid-column: 1/-1; margin: 0; font-size: 8px; }
+  .right-rail > .room-entry > #room-open { min-height: 44px; padding-inline: 7px; font-size: 9px; white-space: nowrap; }
+  .right-rail > .room-entry > .room-join-line { min-width: 0; margin: 0; }
+  .right-rail > .room-entry .room-join-line input { height: 44px; flex: 1; font-size: 11px; }
+  .right-rail > .room-entry .room-join-line > button { min-width: 66px; min-height: 44px; padding-inline: 7px; }
+  .right-rail > .room-entry > #quick-tv { grid-column: 1/-1; margin: -3px 0 0; min-height: 44px; padding: 3px 2px; text-align: center; }
   .arena-column { order: 0; }
-  .left-rail { order: 1; }
-  .right-rail > .tactical-tip { position: relative; order: 2; margin-top: 6px; }
-  .right-rail > .section-label, .right-rail > .player-card, .right-rail > .weapon-heading, .right-rail > .weapon-card, .right-rail > .rule, .right-rail > .setting-row, .right-rail > .text-button { order: 3; }
-  .left-rail, .right-rail { border-radius: 10px; }
-  body.tv-view .shell { padding: 0 12px; }
-  body.tv-view .layout { display: block; padding-top: 5px; }
-  body.tv-view .arena-heading { height: 47px; }
-  body.tv-view .arena-heading h1 { font-size: 23px; }
-  body.tv-view .arena-frame { height: calc(100svh - 125px); min-height: 300px; max-height: none; }
-  body.tv-view .arena-footer { height: 24px; }
+  .arena-heading { height: 43px; align-items: center; }
+  .arena-heading .eyebrow { font-size: 7px; letter-spacing: .1em; }
+  .arena-heading h1 { margin: 3px 0 0; font-size: 22px; }
+  .hidden-badge { margin: 0; padding: 6px 7px; gap: 4px; font-size: 7px; white-space: nowrap; }
+  .arena-frame { height: clamp(300px, calc(100svh - 340px), 560px); min-height: 300px; flex: none; border-radius: 10px; }
+  .arena-topline, .arena-bottomline { left: 10px; right: 10px; font-size: 7px; letter-spacing: .04em; }
+  .arena-topline { top: 10px; }
+  #wind-label { display: none; }
+  .arena-bottomline { bottom: 10px; gap: 8px; }
+  #hint-label { overflow: hidden; max-width: 72%; text-overflow: ellipsis; white-space: nowrap; }
+  #players-ready { white-space: nowrap; }
+  .arena-footer { height: 25px; font-size: 7px; }
+  .arena-footer > span:first-child { display: none; }
+  .arena-footer > span:last-child { display: none; }
+  .left-rail { order: 1; padding: 9px; border-radius: 9px; }
+  .rail-heading, .round-readout, .left-rail > .round-progress, .left-rail > .rule, .left-rail > .rail-bottom { display: none; }
+  .left-rail > .section-label { margin: 0 0 7px; }
+  .left-rail > .section-label::after { content: ' · LIVE'; color: #477d3e; }
+  .roster { display: flex; flex-direction: row; overflow-x: auto; gap: 6px; padding: 1px 1px 5px; scrollbar-width: thin; }
+  .roster-row { flex: 0 0 116px; min-height: 48px; gap: 7px; padding: 5px 7px; border-radius: 7px; }
+  .roster-avatar { width: 27px; height: 27px; flex: 0 0 27px; }
+  .roster-meta { gap: 1px; }
+  .roster-meta strong { font-size: 12px; }
+  .roster-meta small { font-size: 7px; letter-spacing: 0; }
+  .roster-kills { font-size: 8px; }
+  .left-rail, .right-rail { border-radius: 9px; }
+  .right-rail > .tactical-tip { display: none; }
+  .right-rail > .section-label, .right-rail > .player-card, .right-rail > .weapon-heading, .right-rail > .weapon-card, .right-rail > .rule, .right-rail > .setting-row, .right-rail > .text-button { order: 2; }
+  .player-card { height: 48px; }
+  .weapon-heading { margin: 7px 0; }
+  .weapon-card { min-height: 48px; margin-bottom: 5px; }
+  .right-rail > .rule { margin: 6px 0; }
+  .setting-row { min-height: 44px; }
+  .mode-button { min-height: 36px; padding-inline: 13px; }
+  .stepper button { width: 36px; height: 36px; }
+  .text-button { min-height: 42px; }
+  .control-bar { position: fixed; z-index: 12; left: 0; right: 0; bottom: 0; min-height: 74px; padding: 9px 12px calc(9px + env(safe-area-inset-bottom)); gap: 8px; border: 0; border-top: 1px solid #b7d3aa; border-radius: 0; box-shadow: 0 -8px 24px #0d2d4626; }
+  body { padding-bottom: calc(86px + env(safe-area-inset-bottom)); }
+  .control-copy { min-width: 0; flex: 1; gap: 0; }
+  .control-index { display: none; }
+  .control-copy>div { gap: 3px; }
+  .control-copy strong { font-size: 11px; letter-spacing: .025em; }
+  .control-copy span:last-child { display: -webkit-box; overflow: hidden; max-width: 31ch; font-size: 9px; line-height: 1.3; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .control-tools { flex: 0 0 auto; gap: 6px; }
+  .undo-button, .fire-button { min-height: 48px; height: 48px; }
+  .undo-button { min-width: 48px; padding-inline: 12px; }
+  .undo-button span { display: none; }
+  .fire-button { min-width: 142px; padding-inline: 12px; font-size: 10px; }
+  .micro-footer { display: none; }
+  body.tv-view .shell { padding: 0 10px; }
+  body.tv-view .layout { display: block; padding-top: 4px; }
+  body.tv-view .arena-heading { height: 42px; }
+  body.tv-view .arena-heading h1 { font-size: 20px; }
+  body.tv-view .arena-frame { height: calc(100svh - 92px); min-height: 260px; max-height: none; }
+  body.tv-view .arena-footer { height: 20px; }
+  body.tv-view { padding-bottom: 0; }
+  .room-card { max-height: calc(100svh - 24px); overflow-y: auto; padding: 24px 17px; }
+  .room-card h2 { margin-bottom: 18px; font-size: 30px; }
+  .room-field { margin-bottom: 14px; }
+  .room-field input, .room-join-line.large input { height: 48px; font-size: 12px; }
+  .room-actions-grid { gap: 8px; margin-bottom: 18px; }
+  .room-actions-grid .room-action { min-height: 48px; height: auto; }
+  .room-join-line.large > button { min-height: 48px; }
+  .room-lobby-actions { gap: 7px; }
+  .room-lobby-actions .room-action, .room-lobby-actions .undo-button { min-height: 44px; }
+  .room-lobby-actions .fire-button { min-height: 48px; }
+  .lobby-player { min-height: 46px; }
+}
+@media (max-width: 380px) {
+  .shell { padding-inline: 8px; }
+  .topbar { gap: 5px; }
+  .brand { gap: 6px; font-size: 18px; letter-spacing: 1px; }
+  .brand-mark { width: 24px; height: 24px; }
+  .top-center { font-size: 6px; }
+  .top-actions { gap: 3px; }
+  .icon-button { width: 42px; height: 44px; flex-basis: 42px; }
+  .arena-heading h1 { font-size: 20px; }
+  .hidden-badge { font-size: 6px; padding: 5px; }
+  .right-rail > .room-entry { gap: 6px; padding: 7px; }
+  .right-rail > .room-entry > #room-open { font-size: 8px; }
+  .right-rail > .room-entry .room-join-line > button { min-width: 59px; font-size: 8px; }
+  .arena-frame { height: clamp(280px, calc(100svh - 335px), 500px); min-height: 280px; }
+  .fire-button { min-width: 126px; }
+  .control-copy span:last-child { max-width: 22ch; font-size: 8px; }
+}
+@media (max-width: 380px) {
+  .top-actions #sound-button, .top-actions #fullscreen-button { display: none; }
+}
+@media (max-height: 740px) and (max-width: 780px) {
+  .arena-frame { height: clamp(250px, 50svh, 390px); min-height: 250px; }
+  .arena-heading { height: 38px; }
+  .left-rail { padding: 6px 8px; }
+  .roster-row { min-height: 42px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

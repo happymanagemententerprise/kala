@@ -117,7 +117,7 @@ The established palette moves from a Deep Space anchor through frosted working s
 
 ## Layout
 
-The desktop shell uses three columns: match status and roster, the central arena, then room entry, loadout, weapons, and settings. The arena receives the largest share of width. The shell caps at 1760px, with a 176px minimum left rail, a 440px minimum arena, a 224px minimum right rail, and 18px gaps in the theme layer. At 1050px the columns tighten; below 780px the interface stacks, bringing room entry before the arena. At 420px the shell gutters and arena height tighten further. TV mode removes player controls and expands the arena to the available screen.
+The desktop shell uses three columns: match status and roster, the central arena, then room entry, loadout, weapons, and settings. The arena receives the largest share of width. The shell caps at 1760px, with a 176px minimum left rail, a 440px minimum arena, a 224px minimum right rail, and 18px gaps in the theme layer. At 1050px the columns tighten; below 780px the phone layout puts a compact room strip before a dominant arena, followed by a horizontally scrollable combatant row and secondary loadout/settings. Reset and lock actions stay fixed at the bottom within the phone safe area, and all frequent touch actions use at least 44px targets. TV mode removes player controls and expands the arena to the available screen.
 
 The rails use 16px vertical and 15px horizontal padding at wide sizes, with tighter padding at tablet widths. Use the existing compact rhythm for dense status content and keep the arena visually dominant.
 

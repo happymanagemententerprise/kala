@@ -47,7 +47,7 @@ ambient.position.z = -8; scene.add(ambient);
 
 const state = {
   round: 1, mode: 'ffa', botCount: 3, zone: 1, active: true, phase: 'planning',
-  selected: null, aim: 0, locked: false, lockedMoves: new Map(), beams: [], particles: [],
+  selected: null, aim: 0, locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
   online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null,
@@ -178,6 +178,7 @@ function makePlayers() {
 
 function rebuildVisuals() {
   state.boundaryPulse = null;
+  state.plannedToken = null;
   while (group.children.length) {
     const child = group.children.pop();
     if (child.geometry) child.geometry.dispose();
@@ -283,13 +284,24 @@ function makeTextSprite(text, color) {
 }
 
 function drawPlannedMove() {
-  removePlanned();
-  // Even the local preview stays private in shared-screen mode.
+  if (state.tv || !state.human?.human || !state.human.alive || state.phase !== 'planning' || !state.selected) {
+    removePlanned();
+    return;
+  }
+  if (state.plannedToken?.parent) {
+    state.plannedToken.position.set(state.selected.x,state.selected.y,.8);
+    return;
+  }
+  const preview={...state.human,pos:state.selected,visual:null,visualParts:null};
+  addToken(preview);
+  state.plannedToken=preview.visual;
+  state.plannedToken.userData.planned=true;
 }
 function removePlanned() {
   for (let i = group.children.length - 1; i >= 0; i--) if (group.children[i].userData.planned) {
     const obj = group.children[i]; group.remove(obj); obj.geometry?.dispose(); obj.material?.dispose();
   }
+  state.plannedToken=null;
 }
 function addBeamSegment(a, b, color, faint = false) {
   const c = new THREE.Color(color);
@@ -517,7 +529,7 @@ function beginOnlineBoard(payload) {
   state.phase = payload.phase === 'revealing' ? 'planning' : payload.phase || 'planning';state.roomPhase=state.phase;
   state.locked = false; state.selected = state.human.alive ? state.human.pos : null;
   state.lockedMoves = new Map(); state.beams = []; state.particles = []; state.lastResult = null; state.pendingRoomResult=null;
-  seeded(payload.seed); buildArena(); rebuildVisuals(); updateHUD();
+  seeded(payload.seed); buildArena(); rebuildVisuals(); updateHUD(); drawPlannedMove();
   document.body.classList.toggle('tv-view', state.tv);
   $('#new-match').disabled = true;
   setPlanningUI();
@@ -538,7 +550,7 @@ function acceptRoomRound(payload) {
   fitCamera(arenaRoot.clientWidth||800,arenaRoot.clientHeight||550);
   state.human = state.players.find(p => p.human) || { id: null, alive: false, kills: 0, pos: v(0,0), human: false };
   state.phase = 'planning';state.roomPhase='planning'; state.locked = false; state.selected = state.human.alive ? state.human.pos : null; state.lockedMoves.clear();
-  seeded(payload.seed); buildArena(); rebuildVisuals(); setPlanningUI(); updateHUD();
+  seeded(payload.seed); buildArena(); rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove();
   $('#arena-title').textContent = state.tv ? 'Waiting for operative input.' : state.human.alive ? 'Set your position.' : 'Spectator mode.';
   $('#sector-label').textContent = `ROOM ${state.roomCode} / ROUND ${String(state.round).padStart(2,'0')}`;
   $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : state.human.alive ? 'TAP ARENA TO POSITION · DRAG TO AIM' : 'BOTS ARE PLANNING · POSITIONS HIDDEN';
@@ -755,7 +767,7 @@ $('#fire-button').addEventListener('click',()=>{
   if(!state.selected){toast('Choose a position inside the arena first.');return;}
   state.locked=true;state.phase='locked';state.lockedMoves.set('human',{pos:state.selected,aim:state.aim,weapon:state.humanWeapon||'standard'});
   removePlanned();$('#fire-label').textContent='SHOT LOCKED';$('#fire-button').disabled=true;$('#undo-button').disabled=true;
-  $('#control-title').textContent='MOVE COMMITTED';$('#control-description').textContent='Your position and shot are hidden. Waiting for the other operatives…';$('#hint-label').textContent='MOVE COMMITTED · WAITING FOR ALL OPERATIVES';$('#phase-label').textContent='AWAITING OPERATIVE INPUT';$('#players-ready').textContent=`${state.players.filter(p=>p.alive).length} / ${state.players.filter(p=>p.alive).length} LOCKED`;
+  $('#control-title').textContent='MOVE COMMITTED';$('#control-description').textContent='Your position and shot are hidden. Waiting for the other operatives…';$('#hint-label').textContent='MOVE COMMITTED · WAITING FOR ALL OPERATIVES';$('#phase-label').textContent='AWAITING OPERATIVE INPUT';const living=state.players.filter(p=>p.alive).length;$('#players-ready').textContent=state.online?`1 / ${living} LOCKED`:`${living} / ${living} LOCKED`;
   showBanner('SHOT LOCKED','HIDDEN','Waiting for other operatives');
   if(state.online) {
     state.lockedMoves.delete('human');

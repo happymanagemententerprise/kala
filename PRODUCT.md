@@ -20,13 +20,14 @@ Kala combines hidden simultaneous movement, directional laser shots, and a shrin
 
 ## Operating Context
 
-Players may use touch or mouse controls on mobile, desktop, or a shared TV display. Room hosts create and manage rooms, guests join with a short code or invite link, and a separate TV device can watch a room. The TV view must not expose positions or aim lines before all players have locked their moves.
+Most play is on phones (about 95%), using touch controls; desktop and shared TV screens are also supported. Room hosts create and manage rooms, guests join with a short code or invite link, and a separate TV device can watch a room. The TV view must not expose positions or aim lines before all players have locked their moves.
 
 ## Capabilities and Constraints
 
 - Solo free-for-all and team matches, with bots continuing after the human player is eliminated.
 - Room creation and joining by code, host transfer, player removal, return to lobby, end match, and end room.
 - Read-only TV view with QR and link sharing.
+- During placement, each player sees only their own position marker; all players' positions and shots are revealed together only after every living player has locked and the volley resolves. TV viewers see no positions before that reveal.
 - Standard and one-bounce reflective laser shots, obstacles, simultaneous resolution, and safe arena shrinking. Only laser strikes eliminate players.
 - Responsive HTML5 interface using Three.js/WebGL and a Node.js WebSocket service deployed on Render.
 - Keep game rules, room actions, URLs, and hidden-move behavior intact during visual redesign.

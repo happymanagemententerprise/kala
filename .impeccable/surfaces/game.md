@@ -18,7 +18,7 @@ Mintfield Broadcast. The game remains immediately recognizable and easy to opera
 
 ## First viewport
 
-Keep the existing three-part game shell: roster and match status, central arena, then loadout, weapons, room entry, and settings. Deep Space Blue remains the structural ground; the rails and bottom action surface become pale mint or lemon work surfaces with dark ink. On phones, multiplayer creation and join controls appear before the arena. TV mode expands the arena and hides player controls.
+Keep the three-part desktop game shell: roster and match status, central arena, then loadout, weapons, room entry, and settings. Deep Space Blue remains the structural ground; the rails and bottom action surface become pale mint or lemon work surfaces with dark ink. On phones, a compact create/join strip comes first, then a dominant playable arena, horizontally scrollable combatant strip, and secondary loadout/settings. Keep reset and lock actions fixed within thumb reach above the phone safe area. TV mode expands the arena and hides player controls.
 
 ## Signature move
 
@@ -26,7 +26,7 @@ On every resolved volley, a lemon-colored marker traces the Moss Green safe-zone
 
 ## User path and states
 
-Players position, aim, and lock; the broadcast reveals only when all living players have locked. Show waiting, locked, resolving, hit, safe, and finished states with clear text and palette-backed color. Room code, invite-link, and TV QR actions remain separate. TV view remains read-only and hides positions during planning.
+Each player sees only their own position marker while placing and aiming; opponents' coordinates and aim remain private. After all living players lock, reveal everyone's positions and shots together as the volley resolves. The TV view reveals no positions before that same reveal. Show waiting, locked, resolving, hit, safe, and finished states with clear text and palette-backed color. Room code, invite-link, and TV QR actions remain separate.
 
 ## Constraints and risk
 
