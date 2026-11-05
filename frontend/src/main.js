@@ -46,11 +46,12 @@ const ambient = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.Shad
 ambient.position.z = -8; scene.add(ambient);
 
 const state = {
-  round: 1, mode: 'ffa', botCount: 3, roomBotCount: 2, roundLimit: 7, zone: 1, active: true, phase: 'planning',
+  round: 1, mode: 'ffa', botCount: 3, roomBotCount: 2, roundLimit: 7, startPlayerCount: 4, zone: 1, active: true, phase: 'planning',
   selected: null, aim: 0, laserVisible: false, laserHandlePos: null, previewObjects: [], locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
   online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null,
+  resumeToken: null, restoringSeat: false, reconnectTimer: null,
 };
 let startupTV = new URLSearchParams(location.search).has('tv');
 
@@ -152,7 +153,8 @@ function buildArena() {
   const amount = state.round === 1 ? 1 : clamp(1 - (state.round - 1) * .047, .28, .96);
   state.zone = amount;
   const availableRadius = Math.max(3.2, Math.min(view.w * .44, view.h * .39));
-  const radius = (state.online ? 7.4 : availableRadius) * amount;
+  const rosterStartRadius=5.2+Math.max(2,state.startPlayerCount||2)*.55;
+  const radius = (state.online ? rosterStartRadius : Math.min(availableRadius,rosterStartRadius)) * amount;
   state.arena = makePolygon(sides, radius, -Math.PI / 2 + (state.round % 2) * .12);
   state.obstacles = [];
   const count = Math.min(4, 2 + Math.floor(state.round / 3));
@@ -500,12 +502,12 @@ function burst(pos,color) {
 
 function newMatch() {
   if(state.pendingRound)clearTimeout(state.pendingRound);
-  state.online=false;state.tv=false;state.roomRole=null;document.body.classList.remove('tv-lobby');
+  state.online=false;state.tv=false;state.roomRole=null;document.body.classList.remove('tv-lobby','tv-waiting','tv-code-entry');$('#tv-entry-screen').hidden=true;
   document.body.classList.toggle('tv-view',startupTV);startupTV=false;randomSource=Math.random;
   $('#new-match').disabled=false;
   $('#room-open').textContent='＋  CREATE A ROOM';
   const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('tv');cleanUrl.searchParams.delete('room');history.replaceState({},'',cleanUrl);
-  state.round=1;state.zone=1;state.phase='planning';state.locked=false;state.selected=null;state.aim=0;state.laserVisible=false;state.lockedMoves.clear();state.beams=[];state.particles=[];state.lastResult=null;state.pendingRoomResult=null;
+  state.round=1;state.zone=1;state.startPlayerCount=state.botCount+1;state.phase='planning';state.locked=false;state.selected=null;state.aim=0;state.laserVisible=false;state.lockedMoves.clear();state.beams=[];state.particles=[];state.lastResult=null;state.pendingRoomResult=null;
   buildArena();makePlayers();state.selected=state.human.pos;rebuildVisuals();setPlanningUI();updateHUD();drawPlannedMove();
   $('#arena-title').textContent='Set your position.';$('#arena-kicker').textContent='SECTOR 07 · LIVE FEED';$('#sector-label').textContent=`SECTOR ${String(7+(state.round%9)).padStart(2,'0')} / MINTFIELD ARENA`;
   showBanner('ROUND 01','DEPLOY','Choose your position and lock your shot');
@@ -548,7 +550,7 @@ function sendRoom(message) {
 }
 function beginOnlineBoard(payload) {
   state.online = true; state.tv = state.roomRole === 'viewer'; state.mode = payload.mode || state.mode;
-  state.roomSeed = payload.seed; state.round = payload.round || 1; state.roomHostId = payload.hostId || state.roomHostId; state.roundLimit=Number(payload.roundLimit ?? state.roundLimit);
+  state.roomSeed = payload.seed; state.round = payload.round || 1; state.roomHostId = payload.hostId || state.roomHostId; state.roundLimit=Number(payload.roundLimit ?? state.roundLimit);state.startPlayerCount=Number(payload.startPlayerCount)||((payload.players||[]).filter(p=>p.alive&&p.connected!==false).length);
   state.players = (payload.players || []).map((p, i) => ({
     ...p, human: !state.tv && p.id === state.clientId, color: botColors[i % botColors.length],
     pos: v(Number(p.pos?.x) || 0, Number(p.pos?.y) || 0), move: null,
@@ -580,7 +582,10 @@ function acceptRoomRound(payload) {
   fitCamera(arenaRoot.clientWidth||800,arenaRoot.clientHeight||550);
   state.human = state.players.find(p => p.human) || { id: null, alive: false, kills: 0, pos: v(0,0), human: false };
   state.phase = 'planning';state.roomPhase='planning'; state.locked = false; state.selected = state.human.alive ? state.human.pos : null; state.lockedMoves.clear();
-  seeded(payload.seed); buildArena(); rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
+  seeded(payload.seed); buildArena();
+  const sides=state.arena.length,vertexRadius=Math.min(...state.arena.map(point=>Math.hypot(point.x,point.y))),safeRadius=vertexRadius*Math.cos(Math.PI/sides)*.92;
+  for(const player of state.players){const distance=Math.hypot(player.pos.x,player.pos.y);if(distance>safeRadius&&distance>0)player.pos=v(player.pos.x*safeRadius/distance,player.pos.y*safeRadius/distance);}
+  state.human=state.players.find(player=>player.human)||state.human;state.selected=state.human.alive?state.human.pos:null; rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
   $('#arena-title').textContent = state.tv ? 'Waiting for operative input.' : state.human.alive ? 'Set your position.' : 'Spectator mode.';
   $('#sector-label').textContent = `ROOM ${state.roomCode} / ROUND ${String(state.round).padStart(2,'0')}`;
   $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : state.human.alive ? 'TAP TO MOVE · DRAG FROM YOUR TOKEN TO AIM' : 'BOTS ARE PLANNING · POSITIONS HIDDEN';
@@ -590,20 +595,19 @@ function acceptRoomRound(payload) {
   showBanner(`ROUND ${String(state.round).padStart(2,'0')}`, 'DEPLOY', 'Moves stay hidden until every operative locks');
 }
 
-function showEntryScreen(){ $('#start-screen').hidden=false; $('#entry-name').value=''; document.body.classList.remove('tv-view'); document.body.classList.add('entry-open'); }
+function showPhoneWelcome(panel='home'){
+  $('#start-screen').hidden=false;$('#tv-entry-screen').hidden=true;$('#tv-room-lobby').hidden=true;document.body.classList.remove('tv-view','tv-code-entry','tv-waiting','tv-room-lobby');
+  $('#entry-home').hidden=panel!=='home';$('#entry-create-panel').hidden=panel!=='create';$('#entry-join-panel').hidden=panel!=='join';$('#entry-error').textContent='';
+  if(panel==='create')$('#entry-name').focus();if(panel==='join')$('#entry-room-code').focus();
+}
+function showEntryScreen(){showPhoneWelcome('home');$('#entry-name').value='';$('#entry-join-name').value='';$('#entry-room-code').value='';}
 function hideEntryScreen(){ $('#start-screen').hidden=true; document.body.classList.remove('entry-open'); }
+function applyEntrySettings(fieldId){
+  const name=$(fieldId).value.trim();if(!name){$('#entry-error').textContent='Enter your name to continue.';$(fieldId).focus();return false;}
+  $('#callsign').value=name;return true;
+}
 function syncRoundButtons(value,disabled=false){
   document.querySelectorAll('.round-toggle').forEach(group=>group.querySelectorAll('[data-round-limit]').forEach(button=>{const active=Number(button.dataset.roundLimit)===Number(value);button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));button.disabled=disabled;}));
-}
-function applyEntrySettings(){
-  const name=$('#entry-name').value.trim();
-  if(!name){$('#entry-error').textContent='Enter your name to continue.';$('#entry-name').focus();return false;}
-  $('#callsign').value=name;
-  state.roomBotCount=Number($('#entry-bot-count').textContent)||0;state.botCount=Math.max(1,state.roomBotCount);
-  const roundButton=$('#entry-round-options [data-round-limit].active');state.roundLimit=Number(roundButton?.dataset.roundLimit ?? 7);
-  const mode=document.querySelector('[data-entry-mode].active')?.dataset.entryMode||'ffa';state.mode=mode;
-  $('#bot-count').textContent=String(state.botCount).padStart(2,'0');syncRoundButtons(state.roundLimit);
-  document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));return true;
 }
 function openRoomModal() { $('#room-error').textContent = ''; $('#room-modal').classList.add('open'); }
 function paintRoomState(message) {
@@ -612,18 +616,18 @@ function paintRoomState(message) {
   state.roomPhase=message.phase;
   const players = message.players || [];state.roomPlayers=players;
   $('#room-code-display').textContent = state.roomCode || '—';
-  $('#lobby-count').textContent = `${String(players.length + Number(message.botCount ?? state.roomBotCount)).padStart(2,'0')} / 06`;
+  $('#lobby-count').textContent = `${String(players.filter(player=>player.connected!==false).length).padStart(2,'0')} / 06`;
   const roster = $('#lobby-roster'); roster.replaceChildren();
   players.forEach(player => {
     const row = document.createElement('div'); row.className = `lobby-player${player.team === 'Red' ? ' red' : ''}`;
     const dot = document.createElement('i'); const name = document.createElement('strong'); name.textContent = player.name;
-    const role = document.createElement('small'); role.className = player.id === state.roomHostId ? 'host-mark' : ''; role.textContent = player.id === state.roomHostId ? 'HOST' : `${player.team.toUpperCase()} · ${player.ready?'READY':'NOT READY'}`;
+    const role = document.createElement('small'); role.className = player.id === state.roomHostId ? 'host-mark' : ''; role.textContent = player.connected===false?'RECONNECTING':player.id === state.roomHostId ? 'HOST' : `${state.mode==='teams'?player.team.toUpperCase()+' · ':''}CONNECTED`;
     row.append(dot,name,role);
     if(state.clientId===state.roomHostId&&player.id!==state.roomHostId){
       const actions=document.createElement('span');actions.className='room-player-actions';
       const transfer=document.createElement('button');transfer.type='button';transfer.dataset.roomAction='transfer-host';transfer.dataset.playerId=player.id;transfer.textContent='MAKE HOST';transfer.title=`Transfer host to ${player.name}`;
       const kick=document.createElement('button');kick.type='button';kick.dataset.roomAction='kick-player';kick.dataset.playerId=player.id;kick.textContent='KICK';kick.title=`Remove ${player.name} from this room`;
-      actions.append(transfer,kick);row.append(actions);
+      actions.append(transfer);if(state.mode==='teams'){const team=document.createElement('button');team.type='button';team.dataset.roomAction='set-team';team.dataset.playerId=player.id;team.textContent='SWAP TEAM';actions.append(team);}actions.append(kick);row.append(actions);
     }
     roster.appendChild(row);
   });
@@ -634,8 +638,8 @@ function paintRoomState(message) {
   state.roomBotCount=Number(message.botCount ?? state.roomBotCount); state.roundLimit=Number(message.roundLimit ?? state.roundLimit); syncRoundButtons(state.roundLimit,(!host&&state.roomRole==='player')||(state.online&&!lobby));
   $('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0'); $('#room-bot-less').disabled=!host||state.roomBotCount<=0; $('#room-bot-more').disabled=!host||state.roomBotCount>=Math.max(0,6-players.length);
   document.querySelectorAll('.mode-button').forEach(button=>button.disabled=state.roomRole==='player'&&(!host||!lobby));
-  $('#room-bot-setting').hidden=!host||!lobby;
-  $('#start-room-match').disabled = players.length + state.roomBotCount < 2 || players.some(p=>!p.ready) || !lobby;
+  $('#room-host-settings').hidden=!host||!lobby;
+  const connectedCount=players.filter(p=>p.connected!==false).length;$('#start-room-match').disabled = connectedCount < 2 || ![0,5,7,10].includes(state.roundLimit) || !lobby;$('#lobby-count').textContent=`${String(connectedCount).padStart(2,'0')} / 06`;$('#ready-toggle').hidden=true;
   $('#ready-toggle').hidden=host||!lobby||state.roomRole!=='player';
   $('#ready-toggle').textContent=self?.ready?'READY ✓':'READY UP';
   $('#back-to-lobby').hidden=!host||lobby;
@@ -644,17 +648,30 @@ function paintRoomState(message) {
   $('#lobby-tv').hidden=state.roomRole==='viewer';
   $('#leave-room').textContent=state.roomRole==='viewer'?'EXIT TV':'LEAVE ROOM';
   $('#room-phase-label').textContent = message.phase === 'lobby' ? 'OPERATIVE LOBBY' : message.phase === 'finished' ? 'MATCH COMPLETE' : 'MATCH IN PROGRESS';
-  $('#lobby-note').textContent = lobby ? players.length + state.roomBotCount < 2 ? 'Add at least one AI opponent, or invite another operative.' : players.some(p=>!p.ready) ? 'Waiting for every operative to ready up.' : `Everyone is ready. ${state.roomBotCount} AI opponent${state.roomBotCount===1?'':'s'} will join.` : `Round ${String(message.round || state.round).padStart(2,'0')} · ${message.watchers || 0} TV viewer${message.watchers === 1 ? '' : 's'}`;
+  $('#lobby-note').textContent = lobby ? connectedCount < 2 ? 'At least two players must be connected before the host can start.' : `Room ready · ${state.roomBotCount} AI opponent${state.roomBotCount===1?'':'s'} configured.` : `Round ${String(message.round || state.round).padStart(2,'0')} · ${message.watchers || 0} TV viewer${message.watchers === 1 ? '' : 's'}`;
   $('#room-choose').hidden = true; $('#room-lobby').hidden = false;
 }
-function handleRoomMessage(message) {
+async function renderTVLobby(message){
+  const players=(message.players||[]).filter(player=>player.connected!==false);
+  $('#tv-lobby-code').textContent=message.code||state.roomCode||'-----';$('#tv-room-link-code').textContent=message.code||state.roomCode||'-----';
+  $('#tv-connected-count').textContent=String(players.length).padStart(2,'0')+' / 06';
+  $('#tv-room-mode').textContent=(message.mode||state.mode)==='teams'?'TEAMS':'FREE FOR ALL';
+  const limit=Number(message.roundLimit??state.roundLimit);$('#tv-room-round-count').textContent=limit?'FIRST TO '+limit:'UNLIMITED';
+  $('#tv-room-bot-count').textContent=String(Number(message.botCount??state.roomBotCount)).padStart(2,'0');
+  const roster=$('#tv-room-players');roster.replaceChildren();
+  for(const player of message.players||[]){const row=document.createElement('div');row.className='tv-room-player'+(player.team==='Red'?' red':'');const dot=document.createElement('i');const name=document.createElement('strong');name.textContent=player.name;const badge=document.createElement('small');badge.textContent=player.connected===false?'RECONNECTING':(message.mode==='teams'?player.team.toUpperCase()+' TEAM':player.id===message.hostId?'HOST':'CONNECTED');row.append(dot,name,badge);roster.append(row);}
+  const invite=new URL('/',location.origin);invite.searchParams.set('room',message.code||state.roomCode);
+  try{await QRCode.toCanvas($('#tv-room-qr'),invite.toString(),{width:300,margin:2,errorCorrectionLevel:'H',color:{dark:'#0d2d46',light:'#e6fbda'}});}catch{}
+  $('#tv-room-lobby').hidden=false;document.body.classList.add('tv-view','tv-room-lobby');document.body.classList.remove('tv-waiting','tv-code-entry');$('#tv-entry-screen').hidden=true;
+}
+async function handleRoomMessage(message) {
   if (message.type === 'connected') { state.clientId = message.clientId; return; }
-  if (message.type === 'error') { $('#room-error').textContent = message.message;$('#entry-error').textContent=message.message; toast(message.message); return; }
+  if (message.type === 'error') { if(state.restoringSeat){localStorage.removeItem('kala-seat-v1');state.restoringSeat=false;state.resumeToken=null;state.roomCode=null;state.roomRole=null;showPhoneWelcome('home');} $('#room-error').textContent = message.message;$('#entry-error').textContent=message.message;if(state.tv||document.body.classList.contains('tv-view')){showTVEntryScreen(true);$('#tv-entry-error').textContent=message.message;} toast(message.message); return; }
   if (message.type === 'joined') {
     state.clientId = message.clientId; state.roomCode = message.code; state.roomRole = message.role;
-    if (message.role === 'player') { document.body.classList.remove('tv-view'); hideEntryScreen(); $('#room-open').textContent='▣  ROOM LOBBY'; openRoomModal(); }
+    if (message.role === 'player') {state.resumeToken=message.seatToken||state.resumeToken;state.restoringSeat=false;localStorage.setItem('kala-seat-v1',JSON.stringify({code:message.code,token:state.resumeToken,name:$('#callsign').value.trim()})); document.body.classList.remove('tv-view'); hideEntryScreen(); $('#room-open').textContent='▣  ROOM LOBBY'; openRoomModal(); }
     else {
-      state.online = false; state.tv = true; hideEntryScreen(); document.body.classList.add('tv-view'); $('#room-modal').classList.remove('open');
+      state.online = false; state.tv = true; hideEntryScreen(); $('#tv-entry-screen').hidden=true;document.body.classList.remove('tv-code-entry','tv-waiting');document.body.classList.add('tv-view'); $('#room-modal').classList.remove('open');
       const url=new URL(location.href);url.searchParams.delete('room');url.searchParams.set('tv',message.code);history.replaceState({},'',url);
     }
     return;
@@ -664,12 +681,9 @@ function handleRoomMessage(message) {
     if(message.mode){state.mode=message.mode;document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));}
     state.roomPhase=message.phase;
     if (!state.tv && state.roomRole === 'player') paintRoomState(message);
-    if (state.tv && !message.snapshot && !state.online) {
-      beginOnlineBoard({players:message.players,mode:message.mode,seed:1,round:0,phase:'planning',hostId:message.hostId});
-      $('#arena-title').textContent='TV feed ready. Waiting for host to start.';
-      $('#hint-label').textContent='ROOM LOBBY · OPERATIVE POSITIONS HIDDEN';
-      $('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;
-      showTVLobbyQR();
+    if (state.tv && message.phase==='lobby' && !message.snapshot) {
+      if(!state.online)beginOnlineBoard({players:message.players,mode:message.mode,seed:1,round:1,phase:'planning',hostId:message.hostId});
+      await renderTVLobby(message);
     }
     if (message.snapshot && !state.online) {
       const snapshot = { ...message.snapshot, hostId: message.hostId, players: message.snapshot.players };
@@ -679,7 +693,7 @@ function handleRoomMessage(message) {
     }
     return;
   }
-  if (message.type === 'match-start') { beginOnlineBoard(message); $('#room-modal').classList.remove('open'); $('#tv-qr-modal').classList.remove('open'); document.body.classList.remove('tv-lobby'); showBanner('ROOM MATCH','DEPLOY',`Room ${state.roomCode} · moves are hidden`); return; }
+  if (message.type === 'match-start') { beginOnlineBoard(message); $('#room-modal').classList.remove('open'); $('#tv-qr-modal').classList.remove('open');$('#tv-room-lobby').hidden=true; document.body.classList.remove('tv-lobby','tv-waiting','tv-code-entry','tv-room-lobby');$('#tv-entry-screen').hidden=true; showBanner('ROOM MATCH','DEPLOY',`Room ${state.roomCode} · moves are hidden`); return; }
   if (message.type === 'host-changed') { state.roomHostId=message.hostId;sendRoomBotMoves();return; }
   if (message.type === 'back-to-lobby') { returnToRoomLobby(message);return; }
   if (message.type === 'game-ended') {
@@ -692,7 +706,7 @@ function handleRoomMessage(message) {
   }
   if (message.type === 'kicked') { exitRoom(message.message||'You were removed from the room.');return; }
   if (message.type === 'room-closed') { exitRoom(message.message||'The host ended this room.');return; }
-  if (message.type === 'round-start') { acceptRoomRound(message); return; }
+  if (message.type === 'round-start') { document.body.classList.remove('tv-waiting');acceptRoomRound(message); return; }
   if (message.type === 'move-count') {
     $('#players-ready').textContent = `${message.locked} / ${message.total} LOCKED`;
     if (state.locked) { $('#control-description').textContent = `Move hidden · ${message.locked} of ${message.total} operatives locked.`; $('#hint-label').textContent = `MOVE LOCKED · ${message.locked} / ${message.total} READY`;
@@ -722,18 +736,19 @@ function applyRoomResult(message) {
 }
 function returnToRoomLobby(message) {
   state.roomCode ||= message.code; state.roomHostId=message.hostId||state.roomHostId; state.roomRole ||= 'player';
-  beginOnlineBoard({players:message.players,mode:state.mode,seed:1,round:0,phase:'planning',hostId:state.roomHostId});
+  beginOnlineBoard({players:message.players,mode:state.mode,seed:1,round:1,phase:'planning',hostId:state.roomHostId});
   state.roomPhase='lobby'; $('#arena-title').textContent=state.tv?'TV feed ready. Waiting for host to start.':'Back in the room lobby.';
   $('#control-title').textContent=state.tv?'TV LOBBY FEED':'ROOM LOBBY';
   $('#control-description').textContent=state.tv?'The host can start a new match when operatives are ready.':'Ready up when you are ready for the next match.';
   $('#hint-label').textContent='ROOM LOBBY · NO OPERATIVE POSITIONS SHOWN';
   $('#fire-label').textContent='WAITING';$('#fire-button').disabled=true;$('#undo-button').disabled=true;
-  if(state.tv){document.body.classList.add('tv-view');$('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;showTVLobbyQR();}
+  if(state.tv){document.body.classList.add('tv-view');$('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;renderTVLobby({code:state.roomCode,hostId:state.roomHostId,players:message.players,phase:'lobby',mode:state.mode,roundLimit:state.roundLimit,botCount:state.roomBotCount});}
   else {$('#room-choose').hidden=true;$('#room-lobby').hidden=false;$('#room-modal').classList.add('open');}
 }
 function exitRoom(message) {
-  const socket=state.roomSocket;state.roomSocket=null;state.roomCode=null;state.roomHostId=null;state.roomRole=null;state.roomPhase=null;
-  socket?.close(1000,'Room ended');newMatch();showEntryScreen();
+  localStorage.removeItem('kala-seat-v1');state.resumeToken=null;state.restoringSeat=false;
+  const wasTV=state.tv;const socket=state.roomSocket;state.roomSocket=null;state.roomCode=null;state.roomHostId=null;state.roomRole=null;state.roomPhase=null;
+  socket?.close(1000,'Room ended');newMatch();if(wasTV)showTVEntryScreen();else showEntryScreen();
   if(message)toast(message);
 }
 function onReveal(moves) {
@@ -745,7 +760,7 @@ function onReveal(moves) {
   showBanner('ALL MOVES LOCKED','REVEAL','');
   setTimeout(()=>resolveVolley(moves),320);
 }
-async function connectRoom(action, code = '') {
+async function connectRoom(action, code = '', resumeToken = null) {
   $('#room-error').textContent = '';
   const name = $('#callsign').value.trim() || (action==='watch-room'?'TV DISPLAY':'');
   if(action!=='watch-room'&&!name){$('#room-error').textContent='Enter your name first.';$('#entry-error').textContent='Enter your name first.';$('#callsign').focus();return;}
@@ -762,12 +777,13 @@ async function connectRoom(action, code = '') {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
   const role = action === 'watch-room' ? 'viewer' : 'player';
   const oldSocket=state.roomSocket;
-  const socket = new WebSocket(`${protocol}//${location.host}/ws/${encodeURIComponent(code.toUpperCase())}?role=${role}&name=${encodeURIComponent(name)}`);
+  const resume=resumeToken?`&resume=${encodeURIComponent(resumeToken)}`:'';
+  const socket = new WebSocket(`${protocol}//${location.host}/ws/${encodeURIComponent(code.toUpperCase())}?role=${role}&name=${encodeURIComponent(name)}${resume}`);
   state.roomSocket = socket;
   if(oldSocket&&oldSocket.readyState<WebSocket.CLOSING)oldSocket.close(1000,'Changing room');
   socket.addEventListener('message',event=>{try{handleRoomMessage(JSON.parse(event.data));}catch{}});
-  socket.addEventListener('close',()=>{if(state.roomSocket===socket)toast('Room connection closed.');});
-  socket.addEventListener('error',()=>{$('#room-error').textContent='Could not connect to the Kala room server.';$('#entry-error').textContent='Could not connect to the Kala room server.';});
+  socket.addEventListener('close',()=>{if(state.roomSocket!==socket)return;if(state.restoringSeat)return;if(state.roomRole==='player'&&state.resumeToken){clearTimeout(state.reconnectTimer);state.reconnectTimer=setTimeout(()=>{if(state.roomCode&&state.resumeToken)connectRoom('join-room',state.roomCode,state.resumeToken);},1200);}else if(state.roomRole==='viewer'&&state.roomCode){clearTimeout(state.reconnectTimer);state.reconnectTimer=setTimeout(()=>{if(state.roomCode&&state.roomRole==='viewer')connectRoom('watch-room',state.roomCode);},1200);}else toast('Room connection closed.');});
+  socket.addEventListener('error',()=>{const message='Could not connect to the Kala room server.';$('#room-error').textContent=message;$('#entry-error').textContent=message;if(state.tv||document.body.classList.contains('tv-view')){showTVEntryScreen(true);$('#tv-entry-error').textContent=message;}});
 }
 
 function showBanner(kicker,title,copy) {
@@ -856,14 +872,16 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').cl
 $('#fullscreen-button').addEventListener('click',()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.();});
 $('#sound-button').addEventListener('click',()=>{state.sound=!state.sound;$('#sound-button').style.color=state.sound?'var(--cyan)':'#71808e';toast(state.sound?'Audio cues enabled.':'Audio cues muted.');});
 
-$('#entry-bots-less').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)-1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
-$('#entry-bots-more').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)+1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
-document.querySelectorAll('[data-entry-mode]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-entry-mode]').forEach(b=>b.classList.toggle('active',b===button));}));
-$('#entry-create-room').addEventListener('click',()=>{if(!applyEntrySettings())return;$('#entry-error').textContent='';connectRoom('create-room');});
-$('#entry-join-room').addEventListener('click',()=>{if(!applyEntrySettings())return;$('#entry-error').textContent='';connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
+$('#entry-create-option').addEventListener('click',()=>showPhoneWelcome('create'));
+$('#entry-join-option').addEventListener('click',()=>showPhoneWelcome('join'));
+$('#entry-how-to-play').addEventListener('click',()=>$('#modal').classList.add('open'));
+document.querySelectorAll('[data-entry-back]').forEach(button=>button.addEventListener('click',()=>showPhoneWelcome('home')));
+$('#entry-create-submit').addEventListener('click',()=>{if(!applyEntrySettings('#entry-name'))return;connectRoom('create-room');});
+$('#entry-join-room').addEventListener('click',()=>{if(!applyEntrySettings('#entry-join-name'))return;connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
+$('#entry-room-code').addEventListener('input',event=>{event.target.value=event.target.value.toUpperCase();});
 $('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#entry-join-room').click();});
 $('#entry-tv-view').addEventListener('click',()=>startTVRoom());
-$('#entry-play-solo').addEventListener('click',()=>{if(!applyEntrySettings())return;hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
+$('#entry-play-solo').addEventListener('click',()=>{hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
 $('#room-open').addEventListener('click',()=>{
   if(state.roomRole==='player'&&state.roomCode&&state.roomSocket?.readyState===WebSocket.OPEN){$('#room-choose').hidden=true;$('#room-lobby').hidden=false;openRoomModal();return;}
   state.roomRole=null;$('#room-choose').hidden=false;$('#room-lobby').hidden=true;openRoomModal();
@@ -878,7 +896,7 @@ $('#join-room').addEventListener('click',()=>connectRoom('join-room',$('#room-co
 $('#quick-join').addEventListener('click',()=>connectRoom('join-room',$('#quick-room-code').value.trim().toUpperCase()));
 $('#quick-room-code').addEventListener('keydown',e=>{if(e.key==='Enter')connectRoom('join-room',$('#quick-room-code').value.trim().toUpperCase());});
 const openTV = () => {
-  if(state.tv){sendRoom({type:'leave-room'});state.roomSocket?.close();state.roomSocket=null;state.roomCode=null;state.roomRole=null;newMatch();showEntryScreen();return;}
+  if(state.tv){sendRoom({type:'leave-room'});state.roomSocket?.close();state.roomSocket=null;state.roomCode=null;state.roomRole=null;newMatch();showTVEntryScreen();return;}
   const code=state.roomCode||$('#quick-room-code').value.trim().toUpperCase()||$('#room-code').value.trim().toUpperCase();
   if(code){state.tv=true;state.phase='planning';document.body.classList.add('tv-view');rebuildVisuals();$('#phase-label').textContent='CONNECTING TO TV FEED';connectRoom('watch-room',code);}
   else {startTVRoom();}
@@ -887,7 +905,8 @@ $('#quick-tv').addEventListener('click',openTV);
 $('#tv-button').addEventListener('click',openTV);
 $('#watch-room').addEventListener('click',()=>connectRoom('watch-room',$('#room-code').value.trim().toUpperCase()||state.roomCode||''));
 $('#lobby-tv').addEventListener('click',()=>{if(state.roomCode)connectRoom('watch-room',state.roomCode);});
-async function startTVRoom(){try{const response=await fetch('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not create TV room.');state.tv=true;document.body.classList.add('tv-view');connectRoom('watch-room',result.code);}catch(error){toast(error.message);}}
+async function startTVRoom(){showTVEntryScreen();}
+document.querySelectorAll('[data-room-mode]').forEach(button=>button.addEventListener('click',()=>{if(state.clientId!==state.roomHostId||state.roomPhase!=='lobby')return;state.mode=button.dataset.roomMode;document.querySelectorAll('[data-room-mode]').forEach(b=>b.classList.toggle('active',b===button));document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode});}));
 $('#start-room-match').addEventListener('click',()=>sendRoom({type:'start-match',mode:state.mode,botCount:state.roomBotCount,roundLimit:state.roundLimit}));
 $('#room-bot-less').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount-1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
 $('#room-bot-more').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount+1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
@@ -901,6 +920,7 @@ $('#lobby-roster').addEventListener('click',event=>{
   const targetId=button.dataset.playerId;
   if(button.dataset.roomAction==='transfer-host'){
     if(window.confirm('Make this operative the room host?'))sendRoom({type:'transfer-host',targetId});
+  } else if(button.dataset.roomAction==='set-team'){sendRoom({type:'set-team',targetId});
   } else if(button.dataset.roomAction==='kick-player'){
     if(window.confirm('Remove this operative from the room?'))sendRoom({type:'kick-player',targetId});
   }
@@ -951,8 +971,9 @@ $('#room-modal .room-close').addEventListener('click',()=>$('#room-modal').class
 const startupQuery=new URLSearchParams(location.search);
 const isTVRoute=/^\/tv\/?$/.test(location.pathname);
 if(startupQuery.has('tv')) { $('#start-screen').hidden=true;document.body.classList.add('tv-view');$('#quick-room-code').value=startupQuery.get('tv');connectRoom('watch-room',startupQuery.get('tv').toUpperCase()); }
-else if(startupQuery.has('room')) { $('#entry-room-code').value=startupQuery.get('room'); }
-else if(isTVRoute){$('#start-screen').hidden=true;document.body.classList.add('tv-view');startTVRoom();}
+else if(startupQuery.has('room')) { $('#entry-room-code').value=startupQuery.get('room');showPhoneWelcome('join');$('#entry-room-code').value=startupQuery.get('room'); }
+else if(isTVRoute){showTVEntryScreen();}
+else { try { const saved=JSON.parse(localStorage.getItem('kala-seat-v1')||'null'); if(saved?.code&&saved?.token){state.restoringSeat=true;state.roomCode=saved.code;state.resumeToken=saved.token;state.roomRole='player';$('#callsign').value=saved.name||'';connectRoom('join-room',saved.code,saved.token);} } catch { localStorage.removeItem('kala-seat-v1'); } }
 
 let audioContext=null;
 function playShotSound(count) {

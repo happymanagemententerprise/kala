@@ -14,21 +14,53 @@
   <link rel="stylesheet" href="./theme.css" />
 </head>
 <body>
-  <section id="start-screen" class="start-screen" aria-label="Enter Kala">
+  <section id="start-screen" class="start-screen" aria-label="Kala welcome">
     <div class="entry-card">
       <div class="entry-brand"><span class="brand-mark">K</span><span>KALA<span class="brand-period">.</span></span></div>
       <span class="eyebrow">TACTICAL ARENA · ROOM SETUP</span>
-      <h1>Bring your crew.<br><span>Set the field.</span></h1>
-      <label class="entry-field"><span>YOUR NAME</span><input id="entry-name" maxlength="16" value="" autocomplete="nickname" placeholder="Enter a callsign"></label>
-      <div class="entry-setting entry-round-setting"><span>FIRST TO</span><div class="round-toggle" id="entry-round-options" role="group" aria-label="Match length"><button type="button" data-round-limit="5">5</button><button type="button" class="active" data-round-limit="7" aria-pressed="true">7</button><button type="button" data-round-limit="10">10</button><button type="button" data-round-limit="0" aria-label="Unlimited rounds">∞</button></div></div>
-      <div class="entry-setting"><span>AI OPPONENTS</span><div class="entry-stepper"><button id="entry-bots-less" type="button" aria-label="Fewer AI opponents">−</button><b id="entry-bot-count">02</b><button id="entry-bots-more" type="button" aria-label="More AI opponents">+</button></div></div>
-      <div class="entry-setting entry-mode-setting"><span>MODE</span><div class="entry-mode-buttons"><button type="button" class="active" data-entry-mode="ffa">FREE FOR ALL</button><button type="button" data-entry-mode="teams">TEAMS</button></div></div>
-      <button id="entry-create-room" class="fire-button entry-primary">CREATE ROOM <span class="fire-arrow">↗</span></button>
-      <div class="entry-divider"><span>OR JOIN A CREW</span></div>
-      <div class="entry-join"><input id="entry-room-code" maxlength="5" placeholder="ROOM CODE" aria-label="Room code"><button id="entry-join-room" class="room-action">JOIN ROOM ↗</button></div>
-      <button id="entry-play-solo" class="entry-tv">PLAY SOLO</button><button id="entry-tv-view" class="entry-tv">▣ &nbsp; SET UP A TV DISPLAY</button>
+      <h1>Welcome to<br><span>Kala.</span></h1>
+      <section id="entry-home" class="entry-panel">
+        <button id="entry-create-option" class="fire-button entry-primary">CREATE A ROOM <span class="fire-arrow">↗</span></button>
+        <button id="entry-join-option" class="room-action entry-secondary">JOIN A ROOM</button>
+        <button id="entry-how-to-play" class="entry-how-to-play">How to play</button>
+        <button id="entry-play-solo" class="entry-tv">PLAY SOLO</button>
+        <button id="entry-tv-view" class="entry-tv">▣ &nbsp; TV VIEW</button>
+      </section>
+      <section id="entry-create-panel" class="entry-panel" hidden>
+        <button class="entry-back" data-entry-back>← BACK</button>
+        <label class="entry-field"><span>YOUR NAME</span><input id="entry-name" maxlength="16" value="" autocomplete="nickname" placeholder="Enter your name"></label>
+        <button id="entry-create-submit" class="fire-button entry-primary">CREATE ROOM <span class="fire-arrow">↗</span></button>
+      </section>
+      <section id="entry-join-panel" class="entry-panel" hidden>
+        <button class="entry-back" data-entry-back>← BACK</button>
+        <label class="entry-field"><span>ROOM CODE</span><input id="entry-room-code" maxlength="5" placeholder="ABCDE" aria-label="Room code" autocomplete="off"></label>
+        <label class="entry-field"><span>YOUR NAME</span><input id="entry-join-name" maxlength="16" value="" autocomplete="nickname" placeholder="Enter your name"></label>
+        <button id="entry-join-room" class="fire-button entry-primary">JOIN ROOM <span class="fire-arrow">↗</span></button>
+      </section>
       <p id="entry-error" class="entry-error" aria-live="polite"></p>
     </div>
+  </section>
+
+  <section id="tv-entry-screen" class="tv-entry-screen" hidden aria-label="Watch a Kala room">
+    <div class="tv-entry-content">
+      <div class="tv-wordmark">KALA</div>
+      <div class="tv-byline">TACTICAL ARENA</div>
+      <p class="tv-instructions">Enter the room code shown on the host’s phone.</p>
+      <label class="tv-code-label" for="tv-room-code">Room code</label>
+      <div class="tv-code-row"><input id="tv-room-code" maxlength="5" autocomplete="off" autocapitalize="characters" placeholder="ABCDE" aria-label="Room code"><button id="tv-watch-room" class="tv-watch-button">WATCH</button></div>
+      <p id="tv-entry-error" class="tv-entry-error" aria-live="polite"></p>
+      <button id="tv-how-to-play" class="tv-how-to-play">How to play</button>
+    </div>
+  </section>
+
+  <section id="tv-room-lobby" class="tv-room-lobby" hidden aria-label="Room lobby broadcast">
+    <header class="tv-lobby-header"><div class="tv-mini-brand">KALA <span>LIVE ROOM</span></div><div class="tv-lobby-code"><small>ROOM CODE</small><strong id="tv-lobby-code">ABCDE</strong></div></header>
+    <div class="tv-lobby-grid">
+      <section class="tv-lobby-card tv-join-card"><span class="tv-lobby-kicker">JOIN THIS ROOM</span><canvas id="tv-room-qr" width="320" height="320" aria-label="QR invite link"></canvas><strong id="tv-room-link-code">ABCDE</strong><p>Scan to join from your phone</p></section>
+      <section class="tv-lobby-card tv-players-card"><div class="tv-card-heading"><span>CONNECTED PLAYERS</span><strong id="tv-connected-count">00 / 06</strong></div><div id="tv-room-players" class="tv-room-players"></div></section>
+      <section class="tv-lobby-card tv-settings-card"><span class="tv-lobby-kicker">MATCH SETTINGS</span><div class="tv-lobby-setting"><span>MODE</span><strong id="tv-room-mode">FREE FOR ALL</strong></div><div class="tv-lobby-setting"><span>ROUND COUNT</span><strong id="tv-room-round-count">FIRST TO 7</strong></div><div class="tv-lobby-setting"><span>AI OPPONENTS</span><strong id="tv-room-bot-count">02</strong></div><p>Host manages the room from their phone.</p></section>
+    </div>
+    <footer class="tv-lobby-footer"><span class="live-dot"></span> WAITING FOR HOST TO START</footer>
   </section>
 
   <main class="shell">
@@ -89,7 +121,11 @@
 
   <div id="modal" class="modal" aria-hidden="true"><div class="modal-card"><button class="modal-close" aria-label="Close">×</button><span class="eyebrow">FIELD MANUAL</span><h2>Read the room.<br><span>Own the next move.</span></h2><div class="manual-grid"><div><b>01 / POSITION</b><p>Tap once to set your position. Double-tap your token to reveal the laser, then drag its bright tip to aim.</p></div><div><b>02 / LOCK</b><p>Lock your move. Every operative chooses in secret; the arena reveals only when all shots are committed.</p></div><div><b>03 / SURVIVE</b><p>Any beam crossing your token eliminates you. Cover blocks beams. The zone contracts between volleys.</p></div><div><b>04 / ADAPT</b><p>Earn three eliminations to unlock a single-bounce ricochet. Switch position every round.</p></div></div><button class="fire-button modal-start">GOT IT <span class="fire-arrow">↗</span></button></div></div>
 
-  <div id="room-modal" class="modal room-modal" aria-hidden="true"><div class="modal-card room-card"><button class="room-close modal-close" aria-label="Close">×</button><span class="eyebrow">KALA NETWORK · ROOM CONTROL</span><section id="room-choose"><h2>Bring your crew.<br><span>Own the arena.</span></h2><label class="room-field"><span>CALLSIGN</span><input id="callsign" maxlength="16" value="" placeholder="ENTER YOUR NAME" autocomplete="nickname"></label><div class="room-actions-grid"><button id="create-room" class="room-action primary">＋ &nbsp; CREATE ROOM</button><button id="watch-room" class="room-action">▣ &nbsp; TV VIEW</button></div><label class="room-field"><span>ROOM CODE</span><div class="room-join-line large"><input id="room-code" maxlength="5" placeholder="ENTER 5-CHAR CODE" autocomplete="off"><button id="join-room">JOIN ROOM ↗</button></div></label><p id="room-error" class="room-error" aria-live="polite"></p></section><section id="room-lobby" hidden><span class="eyebrow" id="room-phase-label">OPERATIVE LOBBY</span><div class="room-code-block"><span>ROOM CODE · SHARE WITH YOUR CREW</span><button id="copy-room-code" class="room-code-value" title="Copy room code"><strong id="room-code-display">—</strong><small>COPY CODE</small></button><button id="copy-room-link" class="room-action">COPY INVITE LINK</button><button id="show-tv-qr" class="room-action">▣ &nbsp; SHOW TV QR</button></div><div class="lobby-head"><span class="eyebrow">OPERATIVES</span><span id="lobby-count">01 / 06</span></div><div id="room-bot-setting" class="room-bot-setting" hidden><span>AI OPPONENTS</span><div class="stepper"><button id="room-bot-less" aria-label="Fewer AI opponents">−</button><b id="room-bot-count">02</b><button id="room-bot-more" aria-label="More AI opponents">+</button></div></div><div id="lobby-roster" class="lobby-roster"></div><div class="room-lobby-actions"><button id="leave-room" class="undo-button">LEAVE ROOM</button><button id="ready-toggle" class="room-action">READY UP</button><button id="lobby-tv" class="room-action">▣ &nbsp; TV VIEW</button><button id="back-to-lobby" class="room-action host-control" hidden>BACK TO LOBBY</button><button id="end-game" class="room-action danger host-control" hidden>END GAME</button><button id="end-room" class="room-action danger host-control" hidden>END ROOM</button><button id="start-room-match" class="fire-button">START MATCH <span class="fire-arrow">↗</span></button></div><p id="lobby-note" class="lobby-note">Waiting for operatives to join…</p></section></div></div>
+  <div id="room-modal" class="modal room-modal" aria-hidden="true"><div class="modal-card room-card"><button class="room-close modal-close" aria-label="Close">×</button><span class="eyebrow">KALA NETWORK · ROOM CONTROL</span><section id="room-choose"><h2>Bring your crew.<br><span>Own the arena.</span></h2><label class="room-field"><span>CALLSIGN</span><input id="callsign" maxlength="16" value="" placeholder="ENTER YOUR NAME" autocomplete="nickname"></label><div class="room-actions-grid"><button id="create-room" class="room-action primary">＋ &nbsp; CREATE ROOM</button><button id="watch-room" class="room-action">▣ &nbsp; TV VIEW</button></div><label class="room-field"><span>ROOM CODE</span><div class="room-join-line large"><input id="room-code" maxlength="5" placeholder="ENTER 5-CHAR CODE" autocomplete="off"><button id="join-room">JOIN ROOM ↗</button></div></label><p id="room-error" class="room-error" aria-live="polite"></p></section><section id="room-lobby" hidden><span class="eyebrow" id="room-phase-label">OPERATIVE LOBBY</span><div class="room-code-block"><span>ROOM CODE · SHARE WITH YOUR CREW</span><button id="copy-room-code" class="room-code-value" title="Copy room code"><strong id="room-code-display">—</strong><small>COPY CODE</small></button><button id="copy-room-link" class="room-action">COPY INVITE LINK</button><button id="show-tv-qr" class="room-action">▣ &nbsp; SHOW TV QR</button></div><div class="lobby-head"><span class="eyebrow">OPERATIVES</span><span id="lobby-count">01 / 06</span></div><div id="room-host-settings" class="room-host-settings" hidden>
+  <div class="room-setting-line"><span>MODE</span><div class="entry-mode-buttons"><button type="button" class="active" data-room-mode="ffa">FREE FOR ALL</button><button type="button" data-room-mode="teams">TEAMS</button></div></div>
+  <div class="room-setting-line"><span>ROUND COUNT</span><div class="round-toggle compact" id="room-round-options" role="group" aria-label="Match round count"><button type="button" data-round-limit="5">5</button><button type="button" class="active" data-round-limit="7" aria-pressed="true">7</button><button type="button" data-round-limit="10">10</button><button type="button" data-round-limit="0" aria-label="Unlimited rounds">∞</button></div></div>
+  <div class="room-setting-line"><span>AI OPPONENTS</span><div class="entry-stepper"><button id="room-bot-less" type="button" aria-label="Fewer AI opponents">−</button><b id="room-bot-count">00</b><button id="room-bot-more" type="button" aria-label="More AI opponents">+</button></div></div>
+</div><div id="lobby-roster" class="lobby-roster"></div><div class="room-lobby-actions"><button id="leave-room" class="undo-button">LEAVE ROOM</button><button id="ready-toggle" class="room-action">READY UP</button><button id="lobby-tv" class="room-action">▣ &nbsp; TV VIEW</button><button id="back-to-lobby" class="room-action host-control" hidden>BACK TO LOBBY</button><button id="end-game" class="room-action danger host-control" hidden>END GAME</button><button id="end-room" class="room-action danger host-control" hidden>END ROOM</button><button id="start-room-match" class="fire-button">START MATCH <span class="fire-arrow">↗</span></button></div><p id="lobby-note" class="lobby-note">Waiting for operatives to join…</p></section></div></div>
 
   <div id="tv-qr-modal" class="modal qr-modal" aria-hidden="true"><div class="modal-card qr-card"><button id="tv-qr-close" class="modal-close" aria-label="Close TV QR">×</button><span class="eyebrow">TV VIEW · ROOM <b id="tv-qr-code-label"></b></span><h2>Scan to open<br><span>the live arena.</span></h2><canvas id="tv-qr-canvas" width="300" height="300" aria-label="QR code for the read-only TV view"></canvas><p id="tv-qr-note">Read-only screen · positions stay hidden until all players lock.</p><code id="tv-qr-link"></code><button id="copy-tv-link" class="room-action">COPY TV LINK</button></div></div>
 

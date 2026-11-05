@@ -39,7 +39,7 @@ function winnerName(players,mode,round,roundLimit){
 }
 function makeRoom() {
   let code;do code=makeCode();while(rooms.has(code));
-  return {code,hostId:null,players:new Map(),bots:new Map(),viewers:new Set(),phase:'lobby',mode:'ffa',game:null,botCount:2,roundLimit:7,revealedMoves:false,nextTimer:null,turnTimer:null};
+  return {code,hostId:null,players:new Map(),bots:new Map(),resumeTimers:new Map(),viewers:new Set(),phase:'lobby',mode:'ffa',game:null,botCount:2,roundLimit:7,revealedMoves:false,nextTimer:null,turnTimer:null};
 }
 function closeRoomIfEmpty(room) {
   if(room.players.size||room.viewers.size)return;
@@ -70,41 +70,54 @@ function schedulePlanTimeout(room) {
     if(room.phase==='planning'&&room.game){room.game.moves.clear();broadcast(room,{type:'turn-timeout',round:room.game.round});schedulePlanTimeout(room);}
   },120_000);
 }
-function attachPlayer(socket,room,name) {
-  const isHost=!room.hostId,index=room.players.size;
-  const player={id:socket.id,name:String(name||`PLAYER ${index+1}`).trim().slice(0,16)||`PLAYER ${index+1}`,team:index%2===0?'Blue':'Red',alive:true,kills:0,pos:null,ready:isHost};
-  room.players.set(socket,player);room.botCount=Math.min(room.botCount,Math.max(0,maxPlayers-room.players.size));room.hostId||=socket.id;socket.room=room;socket.role='player';
-  send(socket,{type:'connected',clientId:socket.id});send(socket,{type:'joined',clientId:socket.id,code:room.code,role:'player'});sendRoomState(room);
+function attachPlayer(socket,room,name,resumeToken=null) {
+  const suspended=[...room.players.entries()].find(([,player])=>player.resumeToken===resumeToken&&player.connected===false);
+  let player;
+  if(suspended){
+    const [oldSocket,saved]=suspended;player=saved;clearTimeout(room.resumeTimers.get(player.id));room.resumeTimers.delete(player.id);room.players.delete(oldSocket);oldSocket.room=null;oldSocket.role='replaced';oldSocket.close(1000,'Seat resumed');socket.id=player.id;player.connected=true;player.name=String(name||player.name).trim().slice(0,16)||player.name;
+  }else{
+    if(room.phase!=='lobby')return false;
+    const index=[...room.players.values()].filter(p=>p.connected!==false).length,isHost=!room.hostId;
+    player={id:socket.id,resumeToken:randomUUID(),name:String(name||('PLAYER '+(index+1))).trim().slice(0,16)||('PLAYER '+(index+1)),team:index%2===0?'Blue':'Red',alive:true,kills:0,pos:null,ready:isHost,connected:true};
+    room.hostId||=socket.id;room.botCount=Math.min(room.botCount,Math.max(0,maxPlayers-index-1));
+  }
+  room.players.set(socket,player);socket.room=room;socket.role='player';
+  send(socket,{type:'connected',clientId:socket.id});send(socket,{type:'joined',clientId:socket.id,code:room.code,role:'player',seatToken:player.resumeToken,resumed:Boolean(suspended)});
+  if(room.game)send(socket,{type:'match-start',...snapshot(room,socket.id),hostId:room.hostId,code:room.code});else sendRoomState(room);
+  if(suspended)sendRoomState(room);return true;
+}
+function reassignHost(room){
+  const next=[...room.players.entries()].find(([,player])=>player.connected!==false);room.hostId=next?.[1].id||null;if(next)next[1].ready=true;
+  broadcast(room,{type:'host-changed',hostId:room.hostId});
 }
 function removePlayer(socket) {
   const room=socket.room;if(!room)return;
   if(socket.role==='player'){
-    const player=room.players.get(socket);if(player&&room.game)player.alive=false;
-    room.game?.moves.delete(socket.id);
-    room.players.delete(socket);
-    if(room.hostId===socket.id){room.hostId=room.players.keys().next().value?.id||null;const next=room.players.get([...room.players.keys()].find(c=>c.id===room.hostId));if(next)next.ready=true;}
+    const player=room.players.get(socket);if(player){room.game?.moves.delete(socket.id);if(room.game)player.alive=false;
+      if(socket.permanentLeave){room.players.delete(socket);clearTimeout(room.resumeTimers.get(player.id));room.resumeTimers.delete(player.id);if(room.hostId===player.id)reassignHost(room);}
+      else{player.connected=false;player.ready=false;const timer=setTimeout(()=>{const current=[...room.players.entries()].find(([,p])=>p.id===player.id);if(!current||current[1].connected!==false)return;room.players.delete(current[0]);room.resumeTimers.delete(player.id);if(room.hostId===player.id)reassignHost(room);sendRoomState(room);closeRoomIfEmpty(room);},120_000);room.resumeTimers.set(player.id,timer);}
+    }
   }
   room.viewers.delete(socket);socket.room=null;socket.role='guest';
-  if(room.phase==='revealing'&&room.game){
-    broadcast(room,{type:'reveal-moves',round:room.game.round,moves:Object.fromEntries(room.game.moves)});
-  }else revealIfReady(room);
+  if(room.phase==='revealing'&&room.game)broadcast(room,{type:'reveal-moves',round:room.game.round,moves:Object.fromEntries(room.game.moves)});else revealIfReady(room);
   sendRoomState(room);closeRoomIfEmpty(room);
 }
 function startGame(room,mode,botCount=room.botCount,roundLimit=room.roundLimit) {
-  room.bots.clear();room.botCount=Math.max(0,Math.min(maxPlayers-room.players.size,Number(botCount)||0));room.roundLimit=[0,5,7,10].includes(Number(roundLimit))?Number(roundLimit):7;
+  room.bots.clear();const connectedCount=[...room.players.values()].filter(p=>p.connected!==false).length;room.botCount=Math.max(0,Math.min(maxPlayers-connectedCount,Number(botCount)||0));room.roundLimit=[0,5,7,10].includes(Number(roundLimit))?Number(roundLimit):7;
   const botNames=['VEX','GHOST','NYX','ROOK','ECHO'];
-  for(let i=0;i<room.botCount;i++){const index=room.players.size+i;room.bots.set(`bot-${room.code}-${i+1}`,{id:`bot-${room.code}-${i+1}`,name:botNames[i%botNames.length],team:index%2===0?'Blue':'Red',alive:true,kills:0,pos:null,ready:true,bot:true});}
-  const players=listPlayers(room),radius=4.4;
+  for(let i=0;i<room.botCount;i++){const index=connectedCount+i;room.bots.set(`bot-${room.code}-${i+1}`,{id:`bot-${room.code}-${i+1}`,name:botNames[i%botNames.length],team:index%2===0?'Blue':'Red',alive:true,kills:0,pos:null,ready:true,bot:true});}
+  const connected=[...room.players.values()].filter(p=>p.connected!==false),activeBotCount=Math.min(room.botCount,Math.max(0,maxPlayers-connected.length));room.botCount=activeBotCount;
+  const players=[...connected,...room.bots.values()],radius=4.4;
   players.forEach((p,i)=>{
     const angle=-Math.PI/2+Math.PI*2*i/players.length;p.alive=true;p.kills=0;p.pos={x:Math.cos(angle)*radius,y:Math.sin(angle)*radius};
     const socket=[...room.players.keys()].find(client=>client.id===p.id);if(socket)room.players.set(socket,p);else room.bots.set(p.id,p);
   });
-  room.mode=mode==='teams'?'teams':'ffa';room.game={mode:room.mode,round:1,roundLimit:room.roundLimit,seed:randomInt(1,0x7fffffff),moves:new Map()};room.revealedMoves=false;room.phase='planning';schedulePlanTimeout(room);
+  room.mode=mode==='teams'?'teams':'ffa';room.game={mode:room.mode,round:1,roundLimit:room.roundLimit,startPlayerCount:players.length,seed:randomInt(1,0x7fffffff),moves:new Map()};room.revealedMoves=false;room.phase='planning';schedulePlanTimeout(room);
   broadcastMatchState(room,'match-start');sendRoomState(room);
 }
 function snapshot(room,recipientId=null) {
   if(!room.game)return null;
-  return {mode:room.game.mode,seed:room.game.seed,round:room.game.round,roundLimit:room.game.roundLimit,botCount:room.botCount,phase:room.phase,players:visiblePlayers(room,recipientId),moves:room.revealedMoves?Object.fromEntries(room.game.moves):undefined,locked:room.game.moves.size};
+  return {mode:room.game.mode,seed:room.game.seed,round:room.game.round,roundLimit:room.game.roundLimit,startPlayerCount:room.game.startPlayerCount,botCount:room.botCount,phase:room.phase,players:visiblePlayers(room,recipientId),moves:room.revealedMoves?Object.fromEntries(room.game.moves):undefined,locked:room.game.moves.size};
 }
 function hostOnly(socket,room) { return socket.role==='player'&&socket.id===room.hostId; }
 
@@ -139,9 +152,11 @@ wss.on('connection',(socket,req,code)=>{
   const room=rooms.get(code),url=new URL(req.url||'/',`http://${req.headers.host||'localhost'}`);
   if(!room){send(socket,{type:'error',message:'Room not found. Check the code and try again.'});socket.close(1008,'Room not found');return;}
   const role=url.searchParams.get('role')==='viewer'?'viewer':'player',name=url.searchParams.get('name')||'ROOKIE';
-  if(role==='player'&&room.phase!=='lobby'){send(socket,{type:'error',message:'This match has already started.'});socket.close(1008,'Match already started');return;}
-  if(role==='player'&&room.players.size>=maxPlayers){send(socket,{type:'error',message:'This room is full.'});socket.close(1008,'Room full');return;}
-  if(role==='player')attachPlayer(socket,room,name);
+  const resumeToken=url.searchParams.get('resume'),resumeMatch=[...room.players.values()].some(player=>player.resumeToken===resumeToken&&player.connected===false);
+  if(role==='player'&&resumeToken&&!resumeMatch){send(socket,{type:'error',message:'Your saved room seat is no longer valid. Join the room again.'});socket.close(1008,'Seat expired');return;}
+  if(role==='player'&&room.phase!=='lobby'&&!resumeMatch){send(socket,{type:'error',message:'This match has already started.'});socket.close(1008,'Match already started');return;}
+  if(role==='player'&&[...room.players.values()].filter(player=>player.connected!==false).length>=maxPlayers&&!resumeMatch){send(socket,{type:'error',message:'This room is full.'});socket.close(1008,'Room full');return;}
+  if(role==='player')attachPlayer(socket,room,name,resumeToken);
   else{
     socket.room=room;socket.role='viewer';room.viewers.add(socket);
     send(socket,{type:'connected',clientId:socket.id});send(socket,{type:'joined',clientId:socket.id,code:room.code,role:'viewer'});
@@ -152,14 +167,17 @@ wss.on('connection',(socket,req,code)=>{
     const current=socket.room;if(!current)return;
     if(msg.type==='start-match'){
       if(!hostOnly(socket,current)||current.phase!=='lobby')return;
-      if(current.players.size+current.botCount<2){send(socket,{type:'error',message:'Add an AI opponent or invite another operative before starting.'});return;}
-      if([...current.players.values()].some(player=>!player.ready)){send(socket,{type:'error',message:'Wait until every operative is ready.'});return;}
+      if([...current.players.values()].filter(player=>player.connected!==false).length<2){send(socket,{type:'error',message:'At least two players must be connected before starting.'});return;}
+      if(![0,5,7,10].includes(Number(current.roundLimit))){send(socket,{type:'error',message:'Choose a round count before starting.'});return;}
       startGame(current,msg.mode,msg.botCount,msg.roundLimit);return;
     }
     if(msg.type==='set-match-options'){
       if(!hostOnly(socket,current)||current.phase!=='lobby')return;
-      current.botCount=Math.max(0,Math.min(maxPlayers-current.players.size,Number(msg.botCount)||0));
+      current.botCount=Math.max(0,Math.min(maxPlayers-[...current.players.values()].filter(p=>p.connected!==false).length,Number(msg.botCount)||0));
       current.roundLimit=[0,5,7,10].includes(Number(msg.roundLimit))?Number(msg.roundLimit):current.roundLimit;if(msg.mode==='teams'||msg.mode==='ffa')current.mode=msg.mode;sendRoomState(current);return;
+    }
+    if(msg.type==='set-team'){
+      if(!hostOnly(socket,current)||current.phase!=='lobby')return;const target=[...current.players.values()].find(player=>player.id===msg.targetId&&player.connected!==false);if(!target)return;target.team=target.team==='Red'?'Blue':'Red';sendRoomState(current);return;
     }
     if(msg.type==='set-ready'){
       const player=current.players.get(socket);if(!player||current.phase!=='lobby'||socket.id===current.hostId)return;
@@ -167,14 +185,14 @@ wss.on('connection',(socket,req,code)=>{
     }
     if(msg.type==='transfer-host'){
       if(!hostOnly(socket,current))return;
-      const targetSocket=[...current.players.keys()].find(client=>client.id===msg.targetId),target=targetSocket&&current.players.get(targetSocket);
+      const targetSocket=[...current.players.keys()].find(client=>client.id===msg.targetId&&current.players.get(client)?.connected!==false),target=targetSocket&&current.players.get(targetSocket);
       if(!target){send(socket,{type:'error',message:'That operative is no longer in the room.'});return;}
       current.hostId=target.id;target.ready=true;broadcast(current,{type:'host-changed',hostId:current.hostId});sendRoomState(current);return;
     }
     if(msg.type==='kick-player'){
       if(!hostOnly(socket,current)||msg.targetId===socket.id)return;
       const target=[...current.players.keys()].find(client=>client.id===msg.targetId);if(!target)return;
-      send(target,{type:'kicked',message:'The host removed you from the room.'});target.close(4001,'Removed by host');return;
+      send(target,{type:'kicked',message:'The host removed you from the room.'});target.permanentLeave=true;target.close(4001,'Removed by host');return;
     }
     if(msg.type==='back-to-lobby'){
       if(!hostOnly(socket,current)||current.phase==='lobby')return;
@@ -189,7 +207,7 @@ wss.on('connection',(socket,req,code)=>{
     }
     if(msg.type==='end-room'){
       if(!hostOnly(socket,current))return;
-      current.phase='closed';clearTimeout(current.turnTimer);clearTimeout(current.nextTimer);
+      current.phase='closed';clearTimeout(current.turnTimer);clearTimeout(current.nextTimer);for(const timer of current.resumeTimers.values())clearTimeout(timer);current.resumeTimers.clear();for(const client of current.players.keys())client.permanentLeave=true;
       broadcast(current,{type:'room-closed',message:'The host ended this room.'});
       for(const client of [...current.players.keys(),...current.viewers])client.close(1000,'Room ended by host');
       closeRoomIfEmpty(current);return;
@@ -226,7 +244,7 @@ wss.on('connection',(socket,req,code)=>{
         broadcastMatchState(current,'round-start');sendRoomState(current);
       },2100);
     }
-    if(msg.type==='leave-room')socket.close(1000,'Left room');
+    if(msg.type==='leave-room'){socket.permanentLeave=true;socket.close(1000,'Left room');}
   });
   socket.on('close',()=>removePlayer(socket));
   socket.on('error',()=>removePlayer(socket));

@@ -383,3 +383,81 @@ body.tv-lobby .qr-card #copy-tv-link { min-height:48px; margin-top:16px; padding
 @media(max-width:780px) { .right-rail>.round-setting-row { order:3; } }
 body.tv-view .topbar { display:none !important; }
 body.tv-view .layout { height:100svh; }
+
+
+/* TV watcher entry follows the room-code handoff shown on the host phone. */
+.tv-entry-screen { position:fixed; inset:0; z-index:210; display:grid; place-items:start center; overflow:auto; padding:clamp(70px,15vh,150px) clamp(20px,8vw,140px) 56px; background:#252635; color:#e6fbda; }
+.tv-entry-screen[hidden] { display:none; }
+.tv-entry-content { width:min(100%,1240px); margin:0 auto; }
+.tv-wordmark { color:#e6fbda; font:900 clamp(82px,9vw,150px)/.82 var(--display); letter-spacing:.025em; text-align:center; }
+.tv-byline { margin-top:14px; color:#fff8d3; font:800 clamp(12px,1.35vw,23px)/1 var(--sans); letter-spacing:.16em; text-align:center; }
+.tv-instructions { margin:clamp(38px,6vh,64px) 0 42px; color:#b9f1ee; font:400 clamp(20px,2vw,33px)/1.4 var(--sans); text-align:center; }
+.tv-code-label { display:block; margin-bottom:14px; color:#e6fbda; font:700 clamp(17px,1.45vw,24px) var(--sans); }
+.tv-code-row { display:flex; align-items:stretch; gap:24px; }
+.tv-code-row input { min-width:0; flex:1; height:clamp(112px,11vw,185px); padding:8px 20px; border:1px solid #8cc7c7; border-radius:20px; outline-color:#85d176; background:#176f71; color:#e6fbda; font:800 clamp(46px,5vw,78px)/1 var(--display); letter-spacing:.32em; text-align:center; text-transform:uppercase; }
+.tv-code-row input::placeholder { color:#d2f1ef; opacity:.9; }
+.tv-watch-button { flex:0 0 clamp(150px,12vw,220px); min-height:112px; border:0; border-radius:20px; background:#85d176; color:#0d2d46; font:800 clamp(22px,2.2vw,36px) var(--display); cursor:pointer; transition:transform .16s ease,filter .16s ease; }
+.tv-watch-button:hover { filter:brightness(1.08); transform:translateY(-2px); }
+.tv-how-to-play { display:inline-block; margin:46px 0 0 -10px; padding:10px; border:0; background:transparent; color:#b9f1ee; font:700 clamp(15px,1.5vw,23px) var(--sans); text-decoration:underline; text-underline-offset:4px; cursor:pointer; }
+.tv-entry-error { min-height:22px; margin:10px 0 0; color:#ffaaa0; font:600 14px var(--sans); }
+body.tv-code-entry { overflow:hidden; background:#252635; }
+body.tv-code-entry #modal { z-index:230; }
+body.tv-view.tv-waiting .arena-column { display:flex; flex-direction:column; }
+body.tv-view.tv-waiting .arena-heading { display:flex !important; flex:0 0 72px; height:72px; align-items:center; justify-content:center; text-align:center; }
+body.tv-view.tv-waiting .arena-heading>div:first-child { text-align:center; }
+body.tv-view.tv-waiting .arena-heading h1 { font-size:clamp(22px,3vw,40px); }
+body.tv-view.tv-waiting .hidden-badge { display:none; }
+body.tv-view.tv-waiting .arena-frame { flex:1; height:auto; }
+@media(max-width:700px) {
+ .tv-entry-screen { padding:clamp(52px,12vh,100px) 20px 32px; }
+ .tv-instructions { margin:38px 0 28px; }
+ .tv-code-row { gap:10px; }
+ .tv-code-row input { height:92px; padding:8px; border-radius:14px; letter-spacing:.18em; }
+ .tv-watch-button { flex-basis:100px; min-height:92px; border-radius:14px; }
+ .tv-how-to-play { margin-top:28px; }
+}
+@media(max-width:420px) {
+ .tv-code-row { flex-direction:column; }
+ .tv-code-row input,.tv-watch-button { width:100%; flex:0 0 auto; min-height:78px; height:78px; }
+ .tv-wordmark { font-size:80px; }
+}
+
+
+.entry-panel[hidden] { display:none; }
+.entry-panel { display:grid; gap:13px; }
+.entry-secondary { width:100%; min-height:52px; justify-content:center; }
+.entry-how-to-play,.entry-back { justify-self:start; padding:8px 0; border:0; background:transparent; color:#3f5ba4; font:700 12px var(--sans); text-decoration:underline; cursor:pointer; }
+.entry-back { text-decoration:none; font:600 10px var(--mono); }
+
+.tv-room-lobby { position:fixed; inset:0; z-index:220; overflow:auto; padding:clamp(22px,4vw,64px); background:#0d2d46; color:#e6fbda; }
+.tv-room-lobby[hidden] { display:none; }
+.tv-lobby-header { display:flex; justify-content:space-between; align-items:center; gap:24px; max-width:1600px; margin:0 auto clamp(26px,5vh,58px); }
+.tv-mini-brand { color:#e6fbda; font:900 clamp(28px,4vw,54px)/1 var(--display); letter-spacing:.04em; }
+.tv-mini-brand span { display:block; margin-top:6px; color:#85d176; font:600 10px var(--mono); letter-spacing:.2em; }
+.tv-lobby-code { display:grid; gap:4px; text-align:right; }
+.tv-lobby-code small { color:#85d176; font:600 10px var(--mono); letter-spacing:.14em; }
+.tv-lobby-code strong { color:#fff8d3; font:800 clamp(30px,4vw,52px) var(--display); letter-spacing:.16em; }
+.tv-lobby-grid { display:grid; grid-template-columns:minmax(250px,.78fr) minmax(300px,1.25fr) minmax(240px,.85fr); gap:clamp(14px,2vw,28px); max-width:1600px; margin:0 auto; }
+.tv-lobby-card { min-width:0; padding:clamp(18px,2vw,30px); border:1px solid #41627a; border-radius:16px; background:#143952; }
+.tv-join-card { display:flex; flex-direction:column; align-items:center; text-align:center; }
+.tv-lobby-kicker,.tv-card-heading { color:#85d176; font:700 11px var(--mono); letter-spacing:.12em; }
+.tv-join-card canvas { display:block; width:min(100%,280px); height:auto; margin:20px 0 12px; padding:12px; border-radius:12px; background:#e6fbda; }
+.tv-join-card>strong { color:#fff8d3; font:800 28px var(--display); letter-spacing:.18em; }
+.tv-join-card p,.tv-settings-card>p { color:#c5d9d4; font-size:13px; line-height:1.5; }
+.tv-card-heading { display:flex; justify-content:space-between; gap:12px; color:#e6fbda; }
+.tv-card-heading strong { color:#85d176; }
+.tv-room-players { display:grid; gap:8px; margin-top:18px; }
+.tv-room-player { display:flex; align-items:center; gap:12px; min-height:54px; padding:10px 12px; border:1px solid #355a70; border-radius:9px; background:#0d2d46; }
+.tv-room-player i { width:10px; height:10px; border-radius:50%; background:#85d176; box-shadow:0 0 12px #85d17688; }
+.tv-room-player strong { color:#e6fbda; font-size:13px; }
+.tv-room-player small { margin-left:auto; color:#fff8d3; font:600 10px var(--mono); }
+.tv-room-player.red i { background:#d46f66; box-shadow:0 0 12px #d46f6688; }
+.tv-lobby-setting { display:flex; justify-content:space-between; gap:14px; padding:16px 0; border-bottom:1px solid #355a70; }
+.tv-lobby-setting:first-of-type { margin-top:20px; }
+.tv-lobby-setting span { color:#a9c9c5; font:600 10px var(--mono); }
+.tv-lobby-setting strong { color:#fff8d3; text-align:right; font:700 13px var(--sans); }
+.tv-lobby-footer { display:flex; align-items:center; justify-content:center; gap:10px; margin:clamp(25px,5vh,50px) auto 0; color:#85d176; font:600 11px var(--mono); letter-spacing:.12em; }
+.tv-lobby-footer .live-dot { width:8px; height:8px; border-radius:50%; }
+body.tv-room-lobby { overflow:hidden; }
+@media(max-width:850px) { .tv-lobby-grid { grid-template-columns:1fr 1fr; } .tv-settings-card { grid-column:1/-1; } .tv-join-card canvas { width:min(70%,210px); } }
+@media(max-width:560px) { .tv-room-lobby { padding:18px; } .tv-lobby-header { align-items:flex-start; } .tv-lobby-grid { grid-template-columns:1fr; } .tv-settings-card { grid-column:auto; } .tv-join-card canvas { width:min(72vw,240px); } .tv-lobby-footer { font-size:9px; } }
