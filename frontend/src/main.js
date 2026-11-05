@@ -46,7 +46,7 @@ const ambient = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.Shad
 ambient.position.z = -8; scene.add(ambient);
 
 const state = {
-  round: 1, mode: 'ffa', botCount: 3, zone: 1, active: true, phase: 'planning',
+  round: 1, mode: 'ffa', botCount: 3, roomBotCount: 2, roundLimit: 7, zone: 1, active: true, phase: 'planning',
   selected: null, aim: 0, locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
@@ -149,7 +149,7 @@ function circleMesh(radius, color, opacity = 1, z = .2) {
 
 function buildArena() {
   const sides = [9, 7, 8, 6, 10, 7, 8][(state.round - 1) % 7];
-  const amount = state.round === 1 ? 1 : clamp(1 - (state.round - 1) * .047, .55, .96);
+  const amount = state.round === 1 ? 1 : clamp(1 - (state.round - 1) * .047, .28, .96);
   state.zone = amount;
   const availableRadius = Math.max(3.2, Math.min(view.w * .44, view.h * .39));
   const radius = (state.online ? 7.4 : availableRadius) * amount;
@@ -353,6 +353,13 @@ function planBots() {
   }
   return moves;
 }
+function sendRoomBotMoves() {
+  if(!state.online || state.tv || state.clientId!==state.roomHostId || state.phase!=='planning') return;
+  const moves=new Map();
+  for(const bot of state.players.filter(p=>p.bot&&p.alive)) moves.set(bot.id,botMove(bot,moves));
+  for(const bot of state.players.filter(p=>p.bot&&p.alive)){const move=moves.get(bot.id);const target=state.players.filter(q=>q.alive&&q!==bot&&(state.mode!=='teams'||q.team!==bot.team)).sort((a,b)=>b.kills-a.kills)[0];if(target){const t=moves.get(target.id)?.pos||target.pos;move.aim=Math.atan2(t.y-move.pos.y,t.x-move.pos.x)+random(-.18,.18);}}
+  if(moves.size)sendRoom({type:'bot-moves',moves:Object.fromEntries([...moves].map(([id,m])=>[id,{pos:{x:m.pos.x,y:m.pos.y},aim:m.aim,weapon:m.weapon}]))});
+}
 function acquirePosition(p) {
   return state.lockedMoves.get(p.id)?.pos || p.pos;
 }
@@ -441,13 +448,20 @@ function resolveVolley(sharedMoves = null) {
 
 function checkWinner() {
   const alive=state.players.filter(p=>p.alive);
-  if (state.mode==='teams') return new Set(alive.map(p=>p.team)).size<=1;
-  return alive.length<=1;
+  const eliminated=state.mode==='teams'?new Set(alive.map(p=>p.team)).size<=1:alive.length<=1;
+  return eliminated || (state.roundLimit>0 && state.round>=state.roundLimit);
 }
 function winnerTitle() {
   const alive=state.players.filter(p=>p.alive);
-  if (!alive.length) return 'DRAW';
-  const winner=alive[0]; return winner.human?'YOU SURVIVED':`${winner.name} WINS`;
+  if (!alive.length && !(state.roundLimit>0 && state.round>=state.roundLimit)) return 'DRAW';
+  if (state.mode==='teams' && new Set(alive.map(p=>p.team)).size===1) return `${alive[0].team.toUpperCase()} TEAM`;
+  if (state.mode==='ffa' && alive.length===1) return alive[0].human?'YOU SURVIVED':`${alive[0].name} WINS`;
+  const scores=new Map();
+  for(const p of state.players){const key=state.mode==='teams'?p.team:p.id;scores.set(key,(scores.get(key)||0)+p.kills);}
+  const top=Math.max(0,...scores.values()),leaders=[...scores].filter(([,score])=>score===top);
+  if(leaders.length!==1)return 'DRAW';
+  if(state.mode==='teams')return `${String(leaders[0][0]).toUpperCase()} TEAM`;
+  const winner=state.players.find(p=>p.id===leaders[0][0]);return winner?.human?'YOU WIN':`${winner?.name||'OPERATIVE'} WINS`;
 }
 function nextRound() {
   if (state.online) return;
@@ -483,7 +497,7 @@ function burst(pos,color) {
 
 function newMatch() {
   if(state.pendingRound)clearTimeout(state.pendingRound);
-  state.online=false;state.tv=false;state.roomRole=null;
+  state.online=false;state.tv=false;state.roomRole=null;document.body.classList.remove('tv-lobby');
   document.body.classList.toggle('tv-view',startupTV);startupTV=false;randomSource=Math.random;
   $('#new-match').disabled=false;
   $('#room-open').textContent='＋  CREATE A ROOM';
@@ -500,11 +514,11 @@ function setPlanningUI() {
   $('#fire-label').textContent=state.human.alive?'LOCK POSITION':'OBSERVE';
   $('#fire-button').disabled=!state.human.alive;
   $('#undo-button').disabled=false;
-  $('#hint-label').textContent=state.human.alive?'TAP ARENA TO POSITION · DRAG TO AIM':'BOTS ARE PLANNING · POSITIONS HIDDEN';
+  $('#hint-label').textContent=state.human.alive?'TAP TO MOVE · DRAG FROM YOUR TOKEN TO AIM':'BOTS ARE PLANNING · POSITIONS HIDDEN';
 }
 function updateHUD() {
-  $('#round-number').textContent=String(state.round).padStart(2,'0');$('#round-total').textContent='12';
-  $('#round-progress').style.width=`${Math.min(100,state.round/12*100)}%`;
+  $('#round-number').textContent=String(state.round).padStart(2,'0');$('#round-total').textContent=state.roundLimit?String(state.roundLimit):'∞';
+  $('#round-progress').style.width=state.roundLimit?`${Math.min(100,state.round/state.roundLimit*100)}%`:`${(state.round%12||12)/12*100}%`;
   $('#zone-readout').textContent=`${Math.round(state.zone*100)}%`;
   $('#kill-readout').textContent=String(state.human?.kills||0).padStart(2,'0');
   const alive=state.players.filter(p=>p.alive).length;$('#alive-count').textContent=`${String(alive).padStart(2,'0')} ACTIVE`;
@@ -531,7 +545,7 @@ function sendRoom(message) {
 }
 function beginOnlineBoard(payload) {
   state.online = true; state.tv = state.roomRole === 'viewer'; state.mode = payload.mode || state.mode;
-  state.roomSeed = payload.seed; state.round = payload.round || 1; state.roomHostId = payload.hostId || state.roomHostId;
+  state.roomSeed = payload.seed; state.round = payload.round || 1; state.roomHostId = payload.hostId || state.roomHostId; state.roundLimit=Number(payload.roundLimit ?? state.roundLimit);
   state.players = (payload.players || []).map((p, i) => ({
     ...p, human: !state.tv && p.id === state.clientId, color: botColors[i % botColors.length],
     pos: v(Number(p.pos?.x) || 0, Number(p.pos?.y) || 0), move: null,
@@ -542,31 +556,31 @@ function beginOnlineBoard(payload) {
   state.phase = payload.phase === 'revealing' ? 'planning' : payload.phase || 'planning';state.roomPhase=state.phase;
   state.locked = false; state.selected = state.human.alive ? state.human.pos : null;
   state.lockedMoves = new Map(); state.beams = []; state.particles = []; state.lastResult = null; state.pendingRoomResult=null;
-  seeded(payload.seed); buildArena(); rebuildVisuals(); updateHUD(); drawPlannedMove();
+  seeded(payload.seed); buildArena(); rebuildVisuals(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
   document.body.classList.toggle('tv-view', state.tv);
   $('#new-match').disabled = true;
   setPlanningUI();
   $('#arena-title').textContent = state.tv ? 'Waiting for operative input.' : state.human.alive ? 'Set your position.' : 'Spectator mode.';
   $('#arena-kicker').textContent = state.tv ? 'SECTOR 07 · BROADCAST FEED' : `ROOM ${state.roomCode} · LIVE MATCH`;
   $('#sector-label').textContent = `ROOM ${state.roomCode} / ROUND ${String(state.round).padStart(2,'0')}`;
-  $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : 'TAP ARENA TO POSITION · DRAG TO AIM';
+  $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : 'TAP TO MOVE · DRAG FROM YOUR TOKEN TO AIM';
   $('#fire-button').disabled = state.tv || !state.human.alive;
   if (state.tv) { $('#phase-label').textContent = `TV VIEW · ROOM ${state.roomCode}`; $('#control-title').textContent = 'LIVE BROADCAST'; }
 }
 function acceptRoomRound(payload) {
-  state.round = payload.round; state.roomSeed = payload.seed; state.roomHostId = payload.hostId || state.roomHostId;
+  state.round = payload.round; state.roomSeed = payload.seed; state.roomHostId = payload.hostId || state.roomHostId; state.roundLimit=Number(payload.roundLimit ?? state.roundLimit);
   const prior = new Map(state.players.map(p => [p.id, p]));
   state.players = (payload.players || []).map((entry, i) => {
     const old = prior.get(entry.id);
-    return { ...old, ...entry, human: !state.tv && entry.id === state.clientId, color: old?.color || botColors[i % botColors.length], pos: v(Number(entry.pos?.x) || 0, Number(entry.pos?.y) || 0), move: null };
+    return { ...old, ...entry, human: !state.tv && entry.id === state.clientId, color: old?.color || botColors[i % botColors.length], pos: entry.pos && Number.isFinite(Number(entry.pos.x)) && Number.isFinite(Number(entry.pos.y)) ? v(Number(entry.pos.x),Number(entry.pos.y)) : old?.pos || v(0,0), move: null };
   });
   fitCamera(arenaRoot.clientWidth||800,arenaRoot.clientHeight||550);
   state.human = state.players.find(p => p.human) || { id: null, alive: false, kills: 0, pos: v(0,0), human: false };
   state.phase = 'planning';state.roomPhase='planning'; state.locked = false; state.selected = state.human.alive ? state.human.pos : null; state.lockedMoves.clear();
-  seeded(payload.seed); buildArena(); rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove();
+  seeded(payload.seed); buildArena(); rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
   $('#arena-title').textContent = state.tv ? 'Waiting for operative input.' : state.human.alive ? 'Set your position.' : 'Spectator mode.';
   $('#sector-label').textContent = `ROOM ${state.roomCode} / ROUND ${String(state.round).padStart(2,'0')}`;
-  $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : state.human.alive ? 'TAP ARENA TO POSITION · DRAG TO AIM' : 'BOTS ARE PLANNING · POSITIONS HIDDEN';
+  $('#hint-label').textContent = state.tv ? 'OPERATIVE POSITIONS HIDDEN · WAITING FOR LOCK-IN' : state.human.alive ? 'TAP TO MOVE · DRAG FROM YOUR TOKEN TO AIM' : 'BOTS ARE PLANNING · POSITIONS HIDDEN';
   $('#phase-label').textContent = state.tv ? `TV VIEW · ROOM ${state.roomCode}` : state.human.alive ? 'OPERATIVE INPUT REQUIRED' : 'SPECTATOR MODE';
   $('#fire-button').disabled = state.tv || !state.human.alive;
   $('#new-match').disabled = true;
@@ -580,7 +594,7 @@ function paintRoomState(message) {
   state.roomPhase=message.phase;
   const players = message.players || [];state.roomPlayers=players;
   $('#room-code-display').textContent = state.roomCode || '—';
-  $('#lobby-count').textContent = `${String(players.length).padStart(2,'0')} / 06`;
+  $('#lobby-count').textContent = `${String(players.length + Number(message.botCount ?? state.roomBotCount)).padStart(2,'0')} / 06`;
   const roster = $('#lobby-roster'); roster.replaceChildren();
   players.forEach(player => {
     const row = document.createElement('div'); row.className = `lobby-player${player.team === 'Red' ? ' red' : ''}`;
@@ -599,7 +613,11 @@ function paintRoomState(message) {
   const lobby=message.phase==='lobby';
   const self=players.find(p=>p.id===state.clientId);
   $('#start-room-match').hidden = !host||!lobby;
-  $('#start-room-match').disabled = players.length < 2 || players.some(p=>!p.ready) || !lobby;
+  state.roomBotCount=Number(message.botCount ?? state.roomBotCount); state.roundLimit=Number(message.roundLimit ?? state.roundLimit);
+  $('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0'); $('#room-bot-less').disabled=!host||state.roomBotCount<=0; $('#room-bot-more').disabled=!host||state.roomBotCount>=Math.max(0,6-players.length);
+  $('#round-limit').value=String(state.roundLimit); $('#round-limit').disabled=(!host&&state.roomRole==='player')||(state.online&&!lobby); document.querySelectorAll('.mode-button').forEach(button=>button.disabled=state.roomRole==='player'&&(!host||!lobby));
+  $('#room-bot-setting').hidden=!host||!lobby;
+  $('#start-room-match').disabled = players.length + state.roomBotCount < 2 || players.some(p=>!p.ready) || !lobby;
   $('#ready-toggle').hidden=host||!lobby||state.roomRole!=='player';
   $('#ready-toggle').textContent=self?.ready?'READY ✓':'READY UP';
   $('#back-to-lobby').hidden=!host||lobby;
@@ -608,7 +626,7 @@ function paintRoomState(message) {
   $('#lobby-tv').hidden=state.roomRole==='viewer';
   $('#leave-room').textContent=state.roomRole==='viewer'?'EXIT TV':'LEAVE ROOM';
   $('#room-phase-label').textContent = message.phase === 'lobby' ? 'OPERATIVE LOBBY' : message.phase === 'finished' ? 'MATCH COMPLETE' : 'MATCH IN PROGRESS';
-  $('#lobby-note').textContent = lobby ? players.length < 2 ? 'Share the room code. At least two operatives are needed.' : players.some(p=>!p.ready) ? 'Waiting for every operative to ready up.' : 'Everyone is ready. Host can start the match.' : `Round ${String(message.round || state.round).padStart(2,'0')} · ${message.watchers || 0} TV viewer${message.watchers === 1 ? '' : 's'}`;
+  $('#lobby-note').textContent = lobby ? players.length + state.roomBotCount < 2 ? 'Add at least one AI opponent, or invite another operative.' : players.some(p=>!p.ready) ? 'Waiting for every operative to ready up.' : `Everyone is ready. ${state.roomBotCount} AI opponent${state.roomBotCount===1?'':'s'} will join.` : `Round ${String(message.round || state.round).padStart(2,'0')} · ${message.watchers || 0} TV viewer${message.watchers === 1 ? '' : 's'}`;
   $('#room-choose').hidden = true; $('#room-lobby').hidden = false;
 }
 function handleRoomMessage(message) {
@@ -632,6 +650,7 @@ function handleRoomMessage(message) {
       $('#arena-title').textContent='TV feed ready. Waiting for host to start.';
       $('#hint-label').textContent='ROOM LOBBY · OPERATIVE POSITIONS HIDDEN';
       $('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;
+      showTVLobbyQR();
     }
     if (message.snapshot && !state.online) {
       const snapshot = { ...message.snapshot, hostId: message.hostId, players: message.snapshot.players };
@@ -641,8 +660,8 @@ function handleRoomMessage(message) {
     }
     return;
   }
-  if (message.type === 'match-start') { beginOnlineBoard(message); $('#room-modal').classList.remove('open'); showBanner('ROOM MATCH','DEPLOY',`Room ${state.roomCode} · moves are hidden`); return; }
-  if (message.type === 'host-changed') { state.roomHostId=message.hostId;return; }
+  if (message.type === 'match-start') { beginOnlineBoard(message); $('#room-modal').classList.remove('open'); $('#tv-qr-modal').classList.remove('open'); document.body.classList.remove('tv-lobby'); showBanner('ROOM MATCH','DEPLOY',`Room ${state.roomCode} · moves are hidden`); return; }
+  if (message.type === 'host-changed') { state.roomHostId=message.hostId;sendRoomBotMoves();return; }
   if (message.type === 'back-to-lobby') { returnToRoomLobby(message);return; }
   if (message.type === 'game-ended') {
     state.roomPhase='finished';
@@ -663,7 +682,7 @@ function handleRoomMessage(message) {
   }
   if (message.type === 'reveal-moves') { onReveal(message.moves); return; }
   if (message.type === 'turn-timeout') {
-    state.phase = 'planning'; state.locked = false; state.lockedMoves.clear(); state.selected = state.human.alive ? state.human.pos : null; setPlanningUI(); toast('Turn timed out. Choose and lock your move again.'); return;
+    state.phase = 'planning'; state.locked = false; state.lockedMoves.clear(); state.selected = state.human.alive ? state.human.pos : null; setPlanningUI(); sendRoomBotMoves(); toast('Turn timed out. Choose and lock your move again.'); return;
   }
   if (message.type === 'round-result') {
     if (state.phase==='locked') { state.pendingRoomResult=message; return; }
@@ -690,7 +709,7 @@ function returnToRoomLobby(message) {
   $('#control-description').textContent=state.tv?'The host can start a new match when operatives are ready.':'Ready up when you are ready for the next match.';
   $('#hint-label').textContent='ROOM LOBBY · NO OPERATIVE POSITIONS SHOWN';
   $('#fire-label').textContent='WAITING';$('#fire-button').disabled=true;$('#undo-button').disabled=true;
-  if(state.tv){document.body.classList.add('tv-view');$('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;}
+  if(state.tv){document.body.classList.add('tv-view');$('#phase-label').textContent=`TV VIEW · ROOM ${state.roomCode}`;showTVLobbyQR();}
   else {$('#room-choose').hidden=true;$('#room-lobby').hidden=false;$('#room-modal').classList.add('open');}
 }
 function exitRoom(message) {
@@ -745,7 +764,7 @@ function fitCamera(w,h) {
 }
 function resize() {
   const w=arenaRoot.clientWidth||800,h=arenaRoot.clientHeight||550;fitCamera(w,h);
-  if(state.players.length){buildArena();rebuildVisuals();drawPlannedMove();}
+  if(state.players.length){if(!state.online)buildArena();rebuildVisuals();drawPlannedMove();}
 }
 new ResizeObserver(resize).observe(arenaRoot);
 
@@ -753,14 +772,14 @@ function canvasPoint(event) {
   const rect=renderer.domElement.getBoundingClientRect();
   return v(((event.clientX-rect.left)/rect.width-.5)*view.w,(.5-(event.clientY-rect.top)/rect.height)*view.h);
 }
-let pointerStart=null, pointerMoved=false;
+let pointerStart=null, pointerMoved=false, pointerMode='position';
 renderer.domElement.addEventListener('pointerdown',event=>{
   if(state.phase!=='planning'||state.locked||!state.human.alive)return;
   event.preventDefault();renderer.domElement.setPointerCapture(event.pointerId);
   const p=canvasPoint(event);if(!pointInPolygon(p,state.arena)||state.obstacles.some(o=>pointInPolygon(p,o.points))){toast('Position must be inside the safe zone.');return;}
-  pointerStart=p;pointerMoved=false;state.selected=p;
-  const target=state.players.find(q=>q.alive&&!q.human&&(state.mode!=='teams'||q.team!==state.human.team));
-  if(target)state.aim=Math.atan2(target.pos.y-p.y,target.pos.x-p.x);
+  pointerStart=p;pointerMoved=false;
+  pointerMode=state.selected && dist(p,state.selected)<.62 ? 'aim' : 'position';
+  if(pointerMode==='position'){state.selected=p;const target=state.players.find(q=>q.alive&&!q.human&&(state.mode!=='teams'||q.team!==state.human.team));if(target)state.aim=Math.atan2(target.pos.y-p.y,target.pos.x-p.x);}
   $('#arena-title').textContent='Move staged. Aim stays hidden.';
   $('#hint-label').textContent='POSITION STAGED · DRAG TO AIM · STILL HIDDEN';
   drawPlannedMove();
@@ -768,7 +787,7 @@ renderer.domElement.addEventListener('pointerdown',event=>{
 renderer.domElement.addEventListener('pointermove',event=>{
   if(!pointerStart||!state.selected)return;
   const p=canvasPoint(event);if(dist(pointerStart,p)>0.12)pointerMoved=true;
-  if(pointerMoved){state.aim=Math.atan2(p.y-pointerStart.y,p.x-pointerStart.x);drawPlannedMove();}
+  if(pointerMoved){const origin=pointerMode==='aim'?state.selected:pointerStart; if(pointerMode==='position')state.selected=pointerStart; state.aim=Math.atan2(p.y-origin.y,p.x-origin.x); drawPlannedMove();}
 });
 renderer.domElement.addEventListener('pointerup',()=>{pointerStart=null;});
 renderer.domElement.addEventListener('pointercancel',()=>{pointerStart=null;});
@@ -789,13 +808,13 @@ $('#fire-button').addEventListener('click',()=>{
   } else setTimeout(()=>{if(state.phase==='locked')resolveVolley();},520);
 });
 $('#undo-button').addEventListener('click',()=>{if(state.phase!=='planning'||state.locked)return;state.selected=state.human.pos;state.aim=0;drawPlannedMove();toast('Move reset.');});
-$('#new-match').addEventListener('click',()=>{newMatch();toast('New match initialized.');});
+$('#new-match').addEventListener('click',()=>{if(state.roomRole){toast('Use the room controls to start another match.');return;}newMatch();toast('New match initialized.');});
 document.querySelectorAll('.mode-button').forEach(button=>button.addEventListener('click',()=>{
   if(state.online||state.round!==1||state.phase!=='planning'){toast('Mode changes start a new match.');return;}
   state.mode=button.dataset.mode;document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b===button));newMatch();
 }));
-$('#less-bots').addEventListener('click',()=>{if(state.online)return;state.botCount=clamp(state.botCount-1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
-$('#more-bots').addEventListener('click',()=>{if(state.online)return;state.botCount=clamp(state.botCount+1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
+$('#less-bots').addEventListener('click',()=>{if(state.online||state.roomRole)return;state.botCount=clamp(state.botCount-1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
+$('#more-bots').addEventListener('click',()=>{if(state.online||state.roomRole)return;state.botCount=clamp(state.botCount+1,1,6);$('#bot-count').textContent=String(state.botCount).padStart(2,'0');newMatch();});
 $('#ricochet-button').addEventListener('click',()=>{
   if(state.human.kills<3){toast(`${3-state.human.kills} more eliminations to unlock.`);return;}
   state.humanWeapon=state.humanWeapon==='ricochet'?'standard':'ricochet';document.querySelectorAll('.weapon-card').forEach(b=>b.classList.toggle('selected',b.dataset.weapon===(state.humanWeapon||'standard')));toast(state.humanWeapon==='ricochet'?'Ricochet equipped. One bounce.':'Prism laser equipped.');
@@ -824,13 +843,17 @@ const openTV = () => {
   if(state.tv){sendRoom({type:'leave-room'});state.roomSocket?.close();state.roomSocket=null;state.roomCode=null;state.roomRole=null;newMatch();return;}
   const code=state.roomCode||$('#quick-room-code').value.trim().toUpperCase()||$('#room-code').value.trim().toUpperCase();
   if(code){state.tv=true;state.phase='planning';document.body.classList.add('tv-view');rebuildVisuals();$('#phase-label').textContent='CONNECTING TO TV FEED';connectRoom('watch-room',code);}
-  else {$('#room-choose').hidden=false;$('#room-lobby').hidden=true;openRoomModal();$('#room-code').focus();}
+  else {startTVRoom();}
 };
 $('#quick-tv').addEventListener('click',openTV);
 $('#tv-button').addEventListener('click',openTV);
 $('#watch-room').addEventListener('click',()=>connectRoom('watch-room',$('#room-code').value.trim().toUpperCase()||state.roomCode||''));
 $('#lobby-tv').addEventListener('click',()=>{if(state.roomCode)connectRoom('watch-room',state.roomCode);});
-$('#start-room-match').addEventListener('click',()=>sendRoom({type:'start-match',mode:state.mode}));
+async function startTVRoom(){try{const response=await fetch('/api/rooms',{method:'POST',headers:{'content-type':'application/json'},body:'{}'});const result=await response.json();if(!response.ok)throw new Error(result.error||'Could not create TV room.');state.tv=true;document.body.classList.add('tv-view');connectRoom('watch-room',result.code);}catch(error){toast(error.message);}}
+$('#start-room-match').addEventListener('click',()=>sendRoom({type:'start-match',mode:state.mode,botCount:state.roomBotCount,roundLimit:state.roundLimit}));
+$('#room-bot-less').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount-1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
+$('#room-bot-more').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount+1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
+$('#round-limit').addEventListener('change',()=>{state.roundLimit=Number($('#round-limit').value);if(state.roomRole==='player'&&state.roomPhase==='lobby')sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});updateHUD();});
 $('#ready-toggle').addEventListener('click',()=>{
   const self=state.roomPlayers.find(p=>p.id===state.clientId);
   sendRoom({type:'set-ready',ready:!self?.ready});
@@ -862,6 +885,11 @@ $('#copy-room-code').addEventListener('click',async()=>{
   catch{$('#room-error').textContent=state.roomCode||'No room code available.';}
 });
 let tvViewLink='';
+async function showTVLobbyQR(){
+  const invite=new URL(location.pathname,location.origin);invite.searchParams.delete('tv');invite.searchParams.set('room',state.roomCode);tvViewLink=invite.toString();
+  $('#tv-qr-code-label').textContent=state.roomCode;$('#tv-qr-link').textContent=tvViewLink;$('#tv-qr-note').textContent='Scan to join this room · the arena appears when the host starts.';$('#tv-qr-modal').classList.add('open');document.body.classList.add('tv-lobby');
+  try{await QRCode.toCanvas($('#tv-qr-canvas'),tvViewLink,{width:340,margin:2,errorCorrectionLevel:'H',color:{dark:'#0d2d46',light:'#e6fbda'}});}catch{toast('Could not create the join QR code.');}
+}
 async function showTVQRCode(){
   if(!state.roomCode){toast('Create or join a room first.');return;}
   const url=new URL(location.pathname,location.origin);url.searchParams.set('tv',state.roomCode);
@@ -874,7 +902,7 @@ async function showTVQRCode(){
   catch{toast('Could not create the TV QR code.');}
 }
 $('#show-tv-qr').addEventListener('click',showTVQRCode);
-$('#tv-qr-close').addEventListener('click',()=>$('#tv-qr-modal').classList.remove('open'));
+$('#tv-qr-close').addEventListener('click',()=>{if(!state.tv)$('#tv-qr-modal').classList.remove('open');});
 $('#tv-qr-modal').addEventListener('click',event=>{if(event.target.id==='tv-qr-modal')$('#tv-qr-modal').classList.remove('open');});
 $('#copy-tv-link').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(tvViewLink);toast('TV view link copied.');}catch{toast(tvViewLink);}});
 $('#leave-room').addEventListener('click',()=>{
