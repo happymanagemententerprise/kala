@@ -590,14 +590,20 @@ function acceptRoomRound(payload) {
   showBanner(`ROUND ${String(state.round).padStart(2,'0')}`, 'DEPLOY', 'Moves stay hidden until every operative locks');
 }
 
-function showEntryScreen(){ $('#start-screen').hidden=false; document.body.classList.remove('tv-view'); document.body.classList.add('entry-open'); }
+function showEntryScreen(){ $('#start-screen').hidden=false; $('#entry-name').value=''; document.body.classList.remove('tv-view'); document.body.classList.add('entry-open'); }
 function hideEntryScreen(){ $('#start-screen').hidden=true; document.body.classList.remove('entry-open'); }
+function syncRoundButtons(value,disabled=false){
+  document.querySelectorAll('.round-toggle').forEach(group=>group.querySelectorAll('[data-round-limit]').forEach(button=>{const active=Number(button.dataset.roundLimit)===Number(value);button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));button.disabled=disabled;}));
+}
 function applyEntrySettings(){
-  $('#callsign').value=$('#entry-name').value.trim()||'ROOKIE';
-  state.roomBotCount=Number($('#entry-bot-count').textContent)||0;state.botCount=Math.max(1,state.roomBotCount);state.roundLimit=Number($('#entry-round-limit').value);
+  const name=$('#entry-name').value.trim();
+  if(!name){$('#entry-error').textContent='Enter your name to continue.';$('#entry-name').focus();return false;}
+  $('#callsign').value=name;
+  state.roomBotCount=Number($('#entry-bot-count').textContent)||0;state.botCount=Math.max(1,state.roomBotCount);
+  const roundButton=$('#entry-round-options [data-round-limit].active');state.roundLimit=Number(roundButton?.dataset.roundLimit ?? 7);
   const mode=document.querySelector('[data-entry-mode].active')?.dataset.entryMode||'ffa';state.mode=mode;
-  $('#bot-count').textContent=String(state.botCount).padStart(2,'0');$('#round-limit').value=String(state.roundLimit);
-  document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));
+  $('#bot-count').textContent=String(state.botCount).padStart(2,'0');syncRoundButtons(state.roundLimit);
+  document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===mode));return true;
 }
 function openRoomModal() { $('#room-error').textContent = ''; $('#room-modal').classList.add('open'); }
 function paintRoomState(message) {
@@ -625,9 +631,9 @@ function paintRoomState(message) {
   const lobby=message.phase==='lobby';
   const self=players.find(p=>p.id===state.clientId);
   $('#start-room-match').hidden = !host||!lobby;
-  state.roomBotCount=Number(message.botCount ?? state.roomBotCount); state.roundLimit=Number(message.roundLimit ?? state.roundLimit);
+  state.roomBotCount=Number(message.botCount ?? state.roomBotCount); state.roundLimit=Number(message.roundLimit ?? state.roundLimit); syncRoundButtons(state.roundLimit,(!host&&state.roomRole==='player')||(state.online&&!lobby));
   $('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0'); $('#room-bot-less').disabled=!host||state.roomBotCount<=0; $('#room-bot-more').disabled=!host||state.roomBotCount>=Math.max(0,6-players.length);
-  $('#round-limit').value=String(state.roundLimit); $('#round-limit').disabled=(!host&&state.roomRole==='player')||(state.online&&!lobby); document.querySelectorAll('.mode-button').forEach(button=>button.disabled=state.roomRole==='player'&&(!host||!lobby));
+  document.querySelectorAll('.mode-button').forEach(button=>button.disabled=state.roomRole==='player'&&(!host||!lobby));
   $('#room-bot-setting').hidden=!host||!lobby;
   $('#start-room-match').disabled = players.length + state.roomBotCount < 2 || players.some(p=>!p.ready) || !lobby;
   $('#ready-toggle').hidden=host||!lobby||state.roomRole!=='player';
@@ -741,7 +747,8 @@ function onReveal(moves) {
 }
 async function connectRoom(action, code = '') {
   $('#room-error').textContent = '';
-  const name = $('#callsign').value.trim() || 'ROOKIE';
+  const name = $('#callsign').value.trim() || (action==='watch-room'?'TV DISPLAY':'');
+  if(action!=='watch-room'&&!name){$('#room-error').textContent='Enter your name first.';$('#entry-error').textContent='Enter your name first.';$('#callsign').focus();return;}
   if (action === 'create-room') {
     try {
       const response = await fetch('/api/rooms', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({name,botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode}) });
@@ -852,11 +859,11 @@ $('#sound-button').addEventListener('click',()=>{state.sound=!state.sound;$('#so
 $('#entry-bots-less').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)-1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
 $('#entry-bots-more').addEventListener('click',()=>{const n=clamp(Number($('#entry-bot-count').textContent)+1,0,5);$('#entry-bot-count').textContent=String(n).padStart(2,'0');});
 document.querySelectorAll('[data-entry-mode]').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('[data-entry-mode]').forEach(b=>b.classList.toggle('active',b===button));}));
-$('#entry-create-room').addEventListener('click',()=>{applyEntrySettings();$('#entry-error').textContent='';connectRoom('create-room');});
-$('#entry-join-room').addEventListener('click',()=>{applyEntrySettings();$('#entry-error').textContent='';connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
+$('#entry-create-room').addEventListener('click',()=>{if(!applyEntrySettings())return;$('#entry-error').textContent='';connectRoom('create-room');});
+$('#entry-join-room').addEventListener('click',()=>{if(!applyEntrySettings())return;$('#entry-error').textContent='';connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
 $('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#entry-join-room').click();});
 $('#entry-tv-view').addEventListener('click',()=>startTVRoom());
-$('#entry-play-solo').addEventListener('click',()=>{applyEntrySettings();hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
+$('#entry-play-solo').addEventListener('click',()=>{if(!applyEntrySettings())return;hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
 $('#room-open').addEventListener('click',()=>{
   if(state.roomRole==='player'&&state.roomCode&&state.roomSocket?.readyState===WebSocket.OPEN){$('#room-choose').hidden=true;$('#room-lobby').hidden=false;openRoomModal();return;}
   state.roomRole=null;$('#room-choose').hidden=false;$('#room-lobby').hidden=true;openRoomModal();
@@ -884,7 +891,7 @@ async function startTVRoom(){try{const response=await fetch('/api/rooms',{method
 $('#start-room-match').addEventListener('click',()=>sendRoom({type:'start-match',mode:state.mode,botCount:state.roomBotCount,roundLimit:state.roundLimit}));
 $('#room-bot-less').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount-1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
 $('#room-bot-more').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount+1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
-$('#round-limit').addEventListener('change',()=>{state.roundLimit=Number($('#round-limit').value);if(state.roomRole==='player'&&state.roomPhase==='lobby')sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});updateHUD();});
+document.querySelectorAll('.round-toggle').forEach(group=>group.addEventListener('click',event=>{const button=event.target.closest('[data-round-limit]');if(!button||button.disabled)return;state.roundLimit=Number(button.dataset.roundLimit);syncRoundButtons(state.roundLimit);if(state.roomRole==='player'&&state.roomPhase==='lobby')sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode});updateHUD();}));
 $('#ready-toggle').addEventListener('click',()=>{
   const self=state.roomPlayers.find(p=>p.id===state.clientId);
   sendRoom({type:'set-ready',ready:!self?.ready});
@@ -917,13 +924,13 @@ $('#copy-room-code').addEventListener('click',async()=>{
 });
 let tvViewLink='';
 async function showTVLobbyQR(){
-  const invite=new URL(location.pathname,location.origin);invite.searchParams.delete('tv');invite.searchParams.set('room',state.roomCode);tvViewLink=invite.toString();
+  const invite=new URL(location.pathname.replace(/\/tv\/?$/,'/')||'/',location.origin);invite.searchParams.delete('tv');invite.searchParams.set('room',state.roomCode);tvViewLink=invite.toString();
   $('#tv-qr-code-label').textContent=state.roomCode;$('#tv-qr-link').textContent=tvViewLink;$('#tv-qr-note').textContent='Scan to join this room · the arena appears when the host starts.';$('#tv-qr-modal').classList.add('open');document.body.classList.add('tv-lobby');
   try{await QRCode.toCanvas($('#tv-qr-canvas'),tvViewLink,{width:340,margin:2,errorCorrectionLevel:'H',color:{dark:'#0d2d46',light:'#e6fbda'}});}catch{toast('Could not create the join QR code.');}
 }
 async function showTVQRCode(){
   if(!state.roomCode){toast('Create or join a room first.');return;}
-  const url=new URL(location.pathname,location.origin);url.searchParams.set('tv',state.roomCode);
+  const url=new URL('/tv',location.origin);url.searchParams.set('tv',state.roomCode);
   tvViewLink=url.toString();
   $('#tv-qr-code-label').textContent=state.roomCode;
   $('#tv-qr-link').textContent=tvViewLink;
@@ -942,8 +949,10 @@ $('#leave-room').addEventListener('click',()=>{
 $('#room-modal .room-close').addEventListener('click',()=>$('#room-modal').classList.remove('open'));
 
 const startupQuery=new URLSearchParams(location.search);
+const isTVRoute=/^\/tv\/?$/.test(location.pathname);
 if(startupQuery.has('tv')) { $('#start-screen').hidden=true;document.body.classList.add('tv-view');$('#quick-room-code').value=startupQuery.get('tv');connectRoom('watch-room',startupQuery.get('tv').toUpperCase()); }
 else if(startupQuery.has('room')) { $('#entry-room-code').value=startupQuery.get('room'); }
+else if(isTVRoute){$('#start-screen').hidden=true;document.body.classList.add('tv-view');startTVRoom();}
 
 let audioContext=null;
 function playShotSound(count) {
@@ -979,4 +988,4 @@ function animate(now) {
 }
 
 // Start after dimensions are measured so the first board fits mobile and TV canvases.
-requestAnimationFrame(()=>{resize();newMatch();requestAnimationFrame(animate);});
+requestAnimationFrame(()=>{resize();if(!startupQuery.has('tv')&&!isTVRoute)newMatch();requestAnimationFrame(animate);});

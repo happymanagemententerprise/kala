@@ -331,7 +331,13 @@ body.tv-lobby .qr-card p { max-width:34ch; color:#3f5ba4; font-size:clamp(15px,1
 body.tv-lobby .qr-card canvas { grid-column:2; grid-row:1/5; width:clamp(280px,32vw,460px); padding:18px; border:1px solid #d1e4c7; border-radius:18px; }
 body.tv-lobby .qr-card code { max-width:38ch; color:#3f5ba4; font-size:clamp(10px,1vw,13px); }
 body.tv-lobby .qr-card #copy-tv-link { min-height:48px; margin-top:16px; padding:0 22px; border-color:#3f5ba4; color:#0d2d46; }
-#round-limit { min-height:38px; max-width:150px; padding:0 10px; border:1px solid #9fbb91; border-radius:6px; background:#e6fbda; color:#0d2d46; font:600 10px var(--mono); letter-spacing:.04em; }
+.round-setting-row { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:42px; border-bottom:1px solid #c4d8b9; color:#405976; font:600 9px var(--mono); letter-spacing:.04em; }
+.round-toggle { display:flex; gap:4px; padding:3px; border:1px solid #aac39f; border-radius:8px; background:#f5f9e8; }
+.round-toggle button { min-width:38px; min-height:36px; padding:0 8px; border:0; border-radius:6px; background:transparent; color:#3f5ba4; font:700 11px var(--mono); cursor:pointer; }
+.round-toggle button.active { background:#3f5ba4; color:#e6fbda; box-shadow:0 2px 6px #0d2d4622; }
+.round-toggle button:focus-visible { outline:2px solid #85d176; outline-offset:1px; }
+.round-toggle.compact { gap:2px; padding:2px; border-radius:6px; }
+.round-toggle.compact button { min-width:31px; min-height:30px; padding:0 4px; font-size:9px; }
 .room-bot-setting { display:flex; align-items:center; justify-content:space-between; gap:16px; margin:12px 0; padding:10px 12px; border:1px solid #b6d2aa; border-radius:8px; color:#3f5ba4; font:600 10px var(--mono); letter-spacing:.08em; }
 .room-bot-setting[hidden] { display:none; }
 .room-bot-setting .stepper button:disabled { opacity:.4; cursor:not-allowed; }
@@ -371,3 +377,9 @@ body.tv-lobby .qr-card #copy-tv-link { min-height:48px; margin-top:16px; padding
 .entry-tv { display:block; margin:12px auto 0; padding:8px; border:0; background:transparent; color:#3f5ba4; font:600 10px var(--mono); }
 .entry-error { min-height:18px; margin:8px 0 0; color:#a74646; font-size:11px; text-align:center; }
 @media(max-width:420px) { .start-screen { padding:12px; } .entry-card { padding:22px 18px; border-radius:14px; } .entry-brand { margin-bottom:22px; } .entry-settings { grid-template-columns:1fr; gap:7px; } .entry-setting { min-height:52px; } .entry-join button { min-width:106px; } }
+
+.entry-round-setting { min-height:58px; margin:0 0 8px; }
+.entry-round-setting .round-toggle button { min-width:44px; min-height:38px; }
+@media(max-width:780px) { .right-rail>.round-setting-row { order:3; } }
+body.tv-view .topbar { display:none !important; }
+body.tv-view .layout { height:100svh; }
