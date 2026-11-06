@@ -474,6 +474,7 @@ body.tv-room-lobby { overflow:hidden; }
 .entry-mode-toggle button.active { background:#85d176; color:#0d2d46; box-shadow:0 5px 16px #061a2a55; }
 .entry-mode-toggle button:active { transform:scale(.985); }
 .entry-field { gap:7px; margin:0 0 13px; }
+.entry-field[hidden] { display:none; }
 .entry-field>span,.entry-field>label { color:#b9d0cb; font:650 11px var(--sans); letter-spacing:.065em; }
 .entry-field input { width:100%; height:64px; padding:0 18px; border:1px solid #85d176; border-radius:14px; outline:2px solid transparent; outline-offset:2px; background:#143952; color:#e6fbda; font:600 17px var(--sans); transition:outline-color .16s,border-color .16s; }
 .entry-field input:focus { border-color:#e6fbda; outline-color:#85d176; }
