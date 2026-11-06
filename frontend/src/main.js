@@ -766,15 +766,19 @@ function onReveal(moves) {
 }
 async function connectRoom(action, code = '', resumeToken = null) {
   $('#room-error').textContent = '';
-  const name = $('#callsign').value.trim() || (action==='watch-room'?'TV DISPLAY':'');
+  const name = $('#callsign').value.trim() || $('#entry-name').value.trim() || (action==='watch-room'?'TV DISPLAY':'');
   if(action!=='watch-room'&&!name){$('#room-error').textContent='Enter your name first.';$('#entry-error').textContent='Enter your name first.';$('#callsign').focus();return;}
   if (action === 'create-room') {
+    const submit=$('#entry-submit');
+    if(submit){submit.disabled=true;submit.setAttribute('aria-busy','true');submit.textContent='Creating room…';}
     try {
-      const response = await fetch('/api/rooms', { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({name,botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode}) });
-      const result = await response.json();
-      if (!response.ok) throw new Error(result.error || 'Room creation failed.');
+      const response = await fetch(new URL('/api/rooms',location.origin), { method:'POST', headers:{'content-type':'application/json'}, body:JSON.stringify({name,botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode}) });
+      const raw=await response.text();let result={};try{result=JSON.parse(raw);}catch{}
+      if (!response.ok) throw new Error(result.error || `Room creation failed (HTTP ${response.status}).`);
+      if(!/^[A-Z0-9]{5}$/.test(String(result.code||'')))throw new Error('The server did not return a valid room code. Check that the Kala room server is running.');
       code = result.code;
-    } catch (error) { $('#room-error').textContent=error.message;$('#entry-error').textContent=error.message;return; }
+    } catch (error) { const message=error instanceof TypeError?'Could not reach the Kala room server. Check the Render service and try again.':error.message;$('#room-error').textContent=message;$('#entry-error').textContent=message;return; }
+    finally{if(submit){submit.disabled=false;submit.removeAttribute('aria-busy');submit.textContent=state.entryMode==='create'?'Create room':'Join room';}}
     action = 'join-room';
   }
   if (!code) { $('#room-error').textContent='Enter a room code first.';$('#entry-error').textContent='Enter a room code first.';return; }
@@ -912,7 +916,7 @@ function showTVEntryScreen(keepError=false){
   document.body.classList.add('tv-view','tv-code-entry');document.body.classList.remove('tv-room-lobby','tv-waiting','tv-lobby');
   if(!keepError)$('#tv-entry-error').textContent='';
 }
-async function startTVRoom(){showTVEntryScreen();}
+async function startTVRoom(){const url=new URL('/tv',location.origin);history.pushState({},'',url);showTVEntryScreen();}
 $('#tv-watch-room').addEventListener('click',()=>connectRoom('watch-room',$('#tv-room-code').value.trim().toUpperCase()));
 $('#tv-room-code').addEventListener('input',event=>{event.target.value=event.target.value.toUpperCase();});
 $('#tv-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#tv-watch-room').click();});
