@@ -461,3 +461,107 @@ body.tv-view.tv-waiting .arena-frame { flex:1; height:auto; }
 body.tv-room-lobby { overflow:hidden; }
 @media(max-width:850px) { .tv-lobby-grid { grid-template-columns:1fr 1fr; } .tv-settings-card { grid-column:1/-1; } .tv-join-card canvas { width:min(70%,210px); } }
 @media(max-width:560px) { .tv-room-lobby { padding:18px; } .tv-lobby-header { align-items:flex-start; } .tv-lobby-grid { grid-template-columns:1fr; } .tv-settings-card { grid-column:auto; } .tv-join-card canvas { width:min(72vw,240px); } .tv-lobby-footer { font-size:9px; } }
+
+/* Welcome and room lobby layout inspired by the supplied phone flow. */
+.start-screen { place-items:start center; padding:clamp(42px,14vh,142px) 18px calc(24px + env(safe-area-inset-bottom)); background:radial-gradient(ellipse at 50% 0%,#214b63 0,#0d2d46 68%,#081f31 100%); }
+.entry-card { width:min(100%,700px); max-height:none; overflow:visible; padding:0; border:0; border-radius:0; background:transparent; color:#e6fbda; box-shadow:none; }
+.entry-brand,.entry-card>.eyebrow { display:none; }
+.entry-card h1 { max-width:620px; margin:0 auto 7px; color:#e6fbda; font:850 clamp(37px,6vw,62px)/1.03 var(--display); letter-spacing:-.035em; text-align:center; }
+.entry-tagline { margin:0; color:#a9c9c5; font:400 clamp(14px,1.8vw,20px)/1.4 var(--sans); text-align:center; }
+.entry-how-to-play { display:block; justify-self:center; margin:22px auto 28px; padding:4px; color:#85d176; font:600 14px var(--sans); }
+.entry-mode-toggle { display:grid; grid-template-columns:1fr 1fr; gap:4px; padding:6px; margin-bottom:17px; border:1px solid #85d176; border-radius:999px; background:#143952; }
+.entry-mode-toggle button { min-height:48px; border:0; border-radius:999px; background:transparent; color:#b5d1ca; font:650 15px var(--sans); cursor:pointer; transition:background .16s,color .16s,transform .16s; }
+.entry-mode-toggle button.active { background:#85d176; color:#0d2d46; box-shadow:0 5px 16px #061a2a55; }
+.entry-mode-toggle button:active { transform:scale(.985); }
+.entry-field { gap:7px; margin:0 0 13px; }
+.entry-field>span,.entry-field>label { color:#b9d0cb; font:650 11px var(--sans); letter-spacing:.065em; }
+.entry-field input { width:100%; height:64px; padding:0 18px; border:1px solid #85d176; border-radius:14px; outline:2px solid transparent; outline-offset:2px; background:#143952; color:#e6fbda; font:600 17px var(--sans); transition:outline-color .16s,border-color .16s; }
+.entry-field input:focus { border-color:#e6fbda; outline-color:#85d176; }
+.entry-field input::placeholder { color:#8ca9a4; opacity:1; }
+#entry-room-code { font:800 clamp(23px,4vw,34px) var(--display); letter-spacing:.32em; text-align:center; text-transform:uppercase; }
+#entry-room-code::placeholder { letter-spacing:.3em; }
+.entry-primary { min-height:62px; margin-top:0; border-radius:14px; font:750 17px var(--display); }
+.entry-error { color:#ffb3ab; font-size:12px; }
+.entry-utility { display:flex; justify-content:center; gap:9px; margin-top:22px; color:#85d176; font:600 12px var(--sans); }
+.entry-utility button { padding:6px 3px; border:0; background:transparent; color:#b9d0cb; font:inherit; cursor:pointer; }
+.entry-utility button:hover { color:#e6fbda; text-decoration:underline; text-underline-offset:3px; }
+.room-modal.open { place-items:start center; overflow:auto; padding:clamp(24px,7vh,74px) 16px calc(24px + env(safe-area-inset-bottom)); background:#0d2d46f2; }
+.room-card { width:min(100%,560px); padding:clamp(22px,5vw,36px); border:1px solid #85d17688; border-radius:18px; background:#e6fbda; color:#0d2d46; box-shadow:0 24px 80px #061a2a88; }
+.room-card>.eyebrow,#room-phase-label { color:#3f5ba4; }
+.room-card h2,.room-card h2 span { color:#0d2d46; }
+.room-code-block { border-color:#b5d1a7; background:#f3f9eb; }
+.room-code-block>span,.room-code-value small,.lobby-head>span:last-child { color:#3f5ba4; }
+.room-code-value strong { color:#0d2d46; }
+.lobby-head>span:first-child { color:#3f5ba4; }
+.lobby-roster { grid-template-columns:1fr; max-height:min(28svh,240px); gap:7px; }
+.lobby-player { min-height:52px; border-color:#c5d9bc; border-radius:10px; background:#f5f9e8; color:#0d2d46; }
+.lobby-player strong { color:#0d2d46; font:700 13px var(--sans); }
+.lobby-player small { color:#3f5ba4; }
+.room-player-actions button { border-color:#b5cbb0; background:#e6fbda; color:#3f5ba4; }
+.room-host-settings { margin:14px 0 8px; padding:13px 15px; border:1px solid #c5d9bc; border-radius:12px; background:#f5f9e8; }
+.room-setting-line { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:11px 0; border-bottom:1px solid #d8e7cf; }
+.room-setting-line:last-child { border-bottom:0; }
+.room-setting-line>span { color:#3f5ba4; font:650 10px var(--mono); letter-spacing:.08em; }
+.room-host-settings .entry-mode-buttons { border-color:#b5cbb0; background:#e6fbda; }
+.room-host-settings .entry-mode-buttons button { color:#3f5ba4; }
+.room-host-settings .entry-mode-buttons button.active { background:#3f5ba4; color:#e6fbda; }
+.room-host-settings .round-toggle button { min-width:36px; min-height:34px; border-color:#c3d8b8; background:#e6fbda; color:#3f5ba4; }
+.room-host-settings .round-toggle button.active { border-color:#3f5ba4; background:#3f5ba4; color:#e6fbda; }
+.room-host-settings .entry-stepper button { border-color:#adc89f; background:#e6fbda; color:#0d2d46; }
+.room-host-settings .entry-stepper b { color:#0d2d46; }
+.room-lobby-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.room-lobby-actions .room-action,.room-lobby-actions .fire-button { width:100%; min-width:0; min-height:48px; margin:0; border-radius:10px; }
+.room-lobby-actions #start-room-match { grid-column:1/-1; min-height:58px; }
+.room-lobby-actions #leave-room { color:#a74646; border-color:#d5aaa5; }
+.lobby-note { color:#3f5ba4; font-size:11px; line-height:1.5; text-align:center; }
+@media(max-width:560px) { .start-screen { padding:clamp(46px,10vh,88px) 18px calc(18px + env(safe-area-inset-bottom)); } .entry-card h1 { font-size:clamp(34px,9vw,44px); } .entry-how-to-play { margin:18px auto 24px; } .entry-mode-toggle button { min-height:50px; font-size:14px; } .entry-field input { height:60px; border-radius:12px; } .entry-primary { min-height:58px; } .room-modal.open { padding:12px 10px calc(12px + env(safe-area-inset-bottom)); } .room-card { padding:24px 18px; border-radius:15px; } .room-setting-line { gap:7px; } .room-setting-line>span { font-size:9px; } .room-host-settings .entry-mode-buttons button { min-height:31px; padding:0 7px; font-size:8px; } .room-host-settings .round-toggle button { min-width:30px; padding:0 7px; } .room-player-actions { flex-wrap:wrap; justify-content:flex-end; } .room-player-actions button { font-size:6px; } }
+
+/* TV broadcast screens follow the supplied code-entry and side-by-side lobby references. */
+.tv-entry-screen { place-items:start center; padding:clamp(110px,24vh,245px) 20px 40px; background:radial-gradient(ellipse at 50% 20%,#214b63 0,#0d2d46 58%,#081f31 100%); color:#e6fbda; }
+.tv-entry-content { width:min(100%,1440px); text-align:center; }
+.tv-wordmark { color:#e6fbda; font:900 clamp(50px,7.3vw,112px)/.98 var(--display); letter-spacing:.065em; text-wrap:balance; }
+.tv-byline { margin-top:12px; color:#85d176; font:700 clamp(11px,1.2vw,17px)/1 var(--sans); letter-spacing:.22em; }
+.tv-instructions { margin:clamp(26px,5vh,54px) 0 25px; color:#b9d0cb; font:400 clamp(18px,1.7vw,25px)/1.4 var(--sans); }
+.tv-code-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; }
+.tv-code-row { width:min(100%,440px); margin:0 auto; gap:14px; }
+.tv-code-row input { height:clamp(76px,8vh,112px); border-color:#85d176; border-radius:15px; background:#143952; color:#e6fbda; font-size:clamp(26px,3vw,40px); letter-spacing:.22em; }
+.tv-code-row input::placeholder { color:#92ada5; }
+.tv-watch-button { flex-basis:146px; min-height:76px; height:clamp(76px,8vh,112px); border-radius:15px; background:#85d176; color:#0d2d46; font-size:clamp(18px,1.7vw,25px); }
+.tv-how-to-play { margin:28px 0 0; color:#85d176; }
+.tv-entry-error { color:#ffd5b1; }
+body.tv-code-entry { background:#0d2d46; }
+.tv-room-lobby { display:flex; flex-direction:column; gap:clamp(20px,4vh,42px); padding:0 clamp(22px,6vw,104px) clamp(20px,4vh,42px); background:radial-gradient(ellipse at 50% 0%,#214b63 0,#0d2d46 65%,#081f31 100%); color:#e6fbda; }
+.tv-lobby-header { width:100%; max-width:1560px; min-height:72px; flex:0 0 72px; margin:0 auto; padding:0 2px; border-bottom:1px solid #85d17666; }
+.tv-brandline { display:flex; align-items:baseline; gap:18px; color:#e6fbda; }
+.tv-brandline strong { font:900 clamp(22px,2vw,32px) var(--display); letter-spacing:.13em; }
+.tv-brandline span { color:#b9d0cb; font:700 clamp(17px,1.5vw,24px) var(--display); letter-spacing:.23em; }
+.tv-header-status { display:flex; align-items:center; gap:12px; }
+.tv-header-status span { padding:9px 15px; border:1px solid #3f5ba4; border-radius:999px; color:#e6fbda; background:#143952; font:650 clamp(10px,.9vw,13px) var(--mono); letter-spacing:.08em; }
+.tv-header-status #tv-lobby-status-pill { border-color:#85d176; color:#0d2d46; background:#85d176; }
+.tv-lobby-grid { flex:1; width:100%; max-width:1560px; min-height:0; margin:0 auto; grid-template-columns:minmax(0,1.08fr) minmax(0,1fr); align-items:center; gap:clamp(22px,4vw,64px); }
+.tv-lobby-card { min-height:min(56vh,520px); padding:clamp(24px,4vw,62px); border:1px solid #85d17688; border-radius:20px; background:#143952; box-shadow:0 20px 60px #061a2a44; }
+.tv-join-card { justify-content:center; }
+.tv-lobby-kicker,.tv-card-heading { color:#b9d0cb; font:750 clamp(12px,1vw,16px) var(--sans); letter-spacing:.15em; }
+.tv-join-card>strong { margin:clamp(24px,5vh,48px) 0 20px; color:#85d176; font:900 clamp(58px,8vw,118px)/1 var(--display); letter-spacing:.26em; text-indent:.26em; }
+.tv-join-card canvas { width:clamp(150px,12vw,205px); margin:0 auto 15px; padding:0; border-radius:0; background:#e6fbda; image-rendering:pixelated; }
+.tv-join-card p { max-width:90%; margin:0; color:#a9c9c5; font:400 clamp(11px,.9vw,14px) var(--sans); overflow-wrap:anywhere; }
+.tv-players-card { display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+.tv-card-heading { display:flex; align-items:center; gap:9px; margin-bottom:24px; color:#b9d0cb; }
+.tv-card-heading strong { color:#85d176; font:800 clamp(18px,1.6vw,25px) var(--display); }
+.tv-room-players { display:flex; flex-wrap:wrap; justify-content:center; gap:10px; width:100%; }
+.tv-room-player { min-height:52px; padding:8px 12px 8px 17px; border:1px solid #3f5ba4; border-radius:999px; background:#0d2d46; }
+.tv-room-player i { background:#85d176; box-shadow:0 0 14px #85d17688; }
+.tv-room-player strong { color:#e6fbda; font-size:clamp(13px,1.1vw,17px); }
+.tv-room-player small { padding:4px 8px; border-radius:6px; color:#0d2d46; background:#85d176; font-size:10px; }
+.tv-room-player.red i { background:#d87970; }
+.tv-room-player.red small { color:#fff8d3; background:#a74646; }
+.tv-lobby-waiting-note { margin:26px 0 0; color:#b9d0cb; font:400 clamp(15px,1.2vw,21px) var(--sans); }
+.tv-lobby-detail { margin:clamp(20px,4vh,36px) 0 0; color:#c5d9d4; font:400 clamp(14px,1.4vw,22px) var(--sans); }
+.tv-settings-summary { display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-top:22px; }
+.tv-settings-summary span { padding:7px 11px; border:1px solid #355a70; border-radius:999px; color:#e6fbda; background:#0d2d46; font:650 10px var(--mono); letter-spacing:.06em; }
+.tv-settings-summary span:first-child { color:#fff8d3; }
+.tv-lobby-footer { display:none; }
+body.tv-room-lobby { overflow:hidden; }
+@media(max-width:760px) { .tv-entry-screen { padding:clamp(85px,20vh,165px) 18px 30px; } .tv-wordmark { font-size:clamp(38px,8vw,68px); } .tv-code-row { width:min(100%,420px); } .tv-code-row input { height:78px; } .tv-watch-button { min-height:78px; height:78px; flex-basis:126px; } .tv-room-lobby { padding:0 18px 20px; gap:18px; overflow:auto; } .tv-lobby-header { min-height:60px; flex-basis:60px; } .tv-lobby-grid { gap:14px; } .tv-lobby-card { min-height:360px; padding:20px; } .tv-join-card>strong { font-size:clamp(46px,7vw,72px); margin:24px 0 14px; } .tv-join-card canvas { width:clamp(115px,14vw,170px); } }
+@media(max-width:560px) { .tv-entry-screen { padding-top:clamp(76px,16vh,125px); } .tv-wordmark { font-size:clamp(35px,9vw,52px); letter-spacing:.035em; } .tv-instructions { margin:30px 0 22px; font-size:16px; } .tv-code-row { gap:9px; } .tv-code-row input { min-width:0; flex:1; height:68px; font-size:25px; letter-spacing:.14em; } .tv-watch-button { flex-basis:98px; min-height:68px; height:68px; font-size:17px; } .tv-how-to-play { margin-top:22px; } .tv-lobby-header { gap:8px; } .tv-brandline { gap:9px; } .tv-brandline strong { font-size:18px; } .tv-brandline span { font-size:13px; } .tv-header-status { gap:5px; } .tv-header-status span { padding:7px 8px; font-size:8px; } .tv-lobby-grid { grid-template-columns:1fr; } .tv-lobby-card { min-height:auto; padding:20px 16px; } .tv-join-card>strong { margin:16px 0 12px; font-size:56px; } .tv-join-card canvas { width:142px; } .tv-players-card { padding:22px 16px; } .tv-card-heading { margin-bottom:16px; } .tv-lobby-waiting-note { margin-top:16px; } .tv-lobby-detail { margin-top:14px; } .tv-settings-summary { margin-top:14px; } body.tv-room-lobby { overflow:auto; } }
+@media(max-height:620px) and (min-width:760px) { .tv-entry-screen { padding-top:12vh; } .tv-wordmark { font-size:clamp(45px,8vh,68px); } .tv-instructions { margin:3vh 0 15px; } .tv-code-row input,.tv-watch-button { height:68px; min-height:68px; } .tv-how-to-play { margin-top:12px; } .tv-lobby-card { min-height:390px; } .tv-join-card>strong { margin:20px 0 12px; font-size:clamp(48px,6vw,82px); } .tv-join-card canvas { width:145px; } }

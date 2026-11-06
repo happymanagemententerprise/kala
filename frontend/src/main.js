@@ -50,7 +50,7 @@ const state = {
   selected: null, aim: 0, laserVisible: false, laserHandlePos: null, previewObjects: [], locked: false, lockedMoves: new Map(), beams: [], particles: [], plannedToken: null,
   showBeamsUntil: 0, toastTimeout: null, pendingRound: null, sound: true,
   players: [], arena: [], obstacles: [], human: null, lastResult: null,
-  online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null,
+  online: false, tv: false, roomSocket: null, roomCode: null, roomRole: null, roomPhase: null, roomPlayers: [], clientId: null, roomHostId: null, roomSeed: 1, boundaryPulse: null, entryMode: 'join',
   resumeToken: null, restoringSeat: false, reconnectTimer: null,
 };
 let startupTV = new URLSearchParams(location.search).has('tv');
@@ -595,12 +595,12 @@ function acceptRoomRound(payload) {
   showBanner(`ROUND ${String(state.round).padStart(2,'0')}`, 'DEPLOY', 'Moves stay hidden until every operative locks');
 }
 
-function showPhoneWelcome(panel='home'){
+function showPhoneWelcome(panel='join'){
   $('#start-screen').hidden=false;$('#tv-entry-screen').hidden=true;$('#tv-room-lobby').hidden=true;document.body.classList.remove('tv-view','tv-code-entry','tv-waiting','tv-room-lobby');
-  $('#entry-home').hidden=panel!=='home';$('#entry-create-panel').hidden=panel!=='create';$('#entry-join-panel').hidden=panel!=='join';$('#entry-error').textContent='';
-  if(panel==='create')$('#entry-name').focus();if(panel==='join')$('#entry-room-code').focus();
+  setEntryMode(panel==='create'?'create':'join');$('#entry-error').textContent='';
 }
-function showEntryScreen(){showPhoneWelcome('home');$('#entry-name').value='';$('#entry-join-name').value='';$('#entry-room-code').value='';}
+function setEntryMode(mode){state.entryMode=mode==='create'?'create':'join';document.querySelectorAll('[data-entry-mode]').forEach(button=>{const active=button.dataset.entryMode===state.entryMode;button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));});$('#entry-room-code-wrap').hidden=state.entryMode==='create';$('#entry-submit').textContent=state.entryMode==='create'?'Create room':'Join room';}
+function showEntryScreen(){showPhoneWelcome('join');$('#entry-name').value='';$('#entry-room-code').value='';}
 function hideEntryScreen(){ $('#start-screen').hidden=true; document.body.classList.remove('entry-open'); }
 function applyEntrySettings(fieldId){
   const name=$(fieldId).value.trim();if(!name){$('#entry-error').textContent='Enter your name to continue.';$(fieldId).focus();return false;}
@@ -653,14 +653,18 @@ function paintRoomState(message) {
 }
 async function renderTVLobby(message){
   const players=(message.players||[]).filter(player=>player.connected!==false);
-  $('#tv-lobby-code').textContent=message.code||state.roomCode||'-----';$('#tv-room-link-code').textContent=message.code||state.roomCode||'-----';
+  const code=message.code||state.roomCode||'-----';$('#tv-header-room-code').textContent=code;$('#tv-room-link-code').textContent=code;
   $('#tv-connected-count').textContent=String(players.length).padStart(2,'0')+' / 06';
   $('#tv-room-mode').textContent=(message.mode||state.mode)==='teams'?'TEAMS':'FREE FOR ALL';
   const limit=Number(message.roundLimit??state.roundLimit);$('#tv-room-round-count').textContent=limit?'FIRST TO '+limit:'UNLIMITED';
+  const round=Number(message.round||0);$('#tv-round-progress').textContent=limit?`ROUND ${round} OF ${limit}`:`ROUND ${round} · UNLIMITED`;
   $('#tv-room-bot-count').textContent=String(Number(message.botCount??state.roomBotCount)).padStart(2,'0');
   const roster=$('#tv-room-players');roster.replaceChildren();
   for(const player of message.players||[]){const row=document.createElement('div');row.className='tv-room-player'+(player.team==='Red'?' red':'');const dot=document.createElement('i');const name=document.createElement('strong');name.textContent=player.name;const badge=document.createElement('small');badge.textContent=player.connected===false?'RECONNECTING':(message.mode==='teams'?player.team.toUpperCase()+' TEAM':player.id===message.hostId?'HOST':'CONNECTED');row.append(dot,name,badge);roster.append(row);}
   const invite=new URL('/',location.origin);invite.searchParams.set('room',message.code||state.roomCode);
+  $('#tv-room-invite-url').textContent=invite.toString();
+  $('#tv-lobby-waiting-note').textContent=players.length<2?'At least two players are needed.':'Players are connected. Waiting for the host to start.';
+  $('#tv-lobby-detail').textContent=`${players.length}/6 joined · host is choosing match settings`;
   try{await QRCode.toCanvas($('#tv-room-qr'),invite.toString(),{width:300,margin:2,errorCorrectionLevel:'H',color:{dark:'#0d2d46',light:'#e6fbda'}});}catch{}
   $('#tv-room-lobby').hidden=false;document.body.classList.add('tv-view','tv-room-lobby');document.body.classList.remove('tv-waiting','tv-code-entry');$('#tv-entry-screen').hidden=true;
 }
@@ -872,14 +876,11 @@ $('#modal').addEventListener('click',e=>{if(e.target.id==='modal')$('#modal').cl
 $('#fullscreen-button').addEventListener('click',()=>{if(!document.fullscreenElement)document.documentElement.requestFullscreen?.();else document.exitFullscreen?.();});
 $('#sound-button').addEventListener('click',()=>{state.sound=!state.sound;$('#sound-button').style.color=state.sound?'var(--cyan)':'#71808e';toast(state.sound?'Audio cues enabled.':'Audio cues muted.');});
 
-$('#entry-create-option').addEventListener('click',()=>showPhoneWelcome('create'));
-$('#entry-join-option').addEventListener('click',()=>showPhoneWelcome('join'));
+document.querySelectorAll('[data-entry-mode]').forEach(button=>button.addEventListener('click',()=>setEntryMode(button.dataset.entryMode)));
 $('#entry-how-to-play').addEventListener('click',()=>$('#modal').classList.add('open'));
-document.querySelectorAll('[data-entry-back]').forEach(button=>button.addEventListener('click',()=>showPhoneWelcome('home')));
-$('#entry-create-submit').addEventListener('click',()=>{if(!applyEntrySettings('#entry-name'))return;connectRoom('create-room');});
-$('#entry-join-room').addEventListener('click',()=>{if(!applyEntrySettings('#entry-join-name'))return;connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
+$('#entry-submit').addEventListener('click',()=>{if(!applyEntrySettings('#entry-name'))return;if(state.entryMode==='create')connectRoom('create-room');else connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
 $('#entry-room-code').addEventListener('input',event=>{event.target.value=event.target.value.toUpperCase();});
-$('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#entry-join-room').click();});
+$('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter'&&state.entryMode==='join')$('#entry-submit').click();});
 $('#entry-tv-view').addEventListener('click',()=>startTVRoom());
 $('#entry-play-solo').addEventListener('click',()=>{hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
 $('#room-open').addEventListener('click',()=>{
@@ -905,7 +906,17 @@ $('#quick-tv').addEventListener('click',openTV);
 $('#tv-button').addEventListener('click',openTV);
 $('#watch-room').addEventListener('click',()=>connectRoom('watch-room',$('#room-code').value.trim().toUpperCase()||state.roomCode||''));
 $('#lobby-tv').addEventListener('click',()=>{if(state.roomCode)connectRoom('watch-room',state.roomCode);});
+function showTVEntryScreen(keepError=false){
+  $('#start-screen').hidden=true;$('#tv-room-lobby').hidden=true;$('#tv-entry-screen').hidden=false;
+  $('#room-modal').classList.remove('open');$('#tv-qr-modal').classList.remove('open');
+  document.body.classList.add('tv-view','tv-code-entry');document.body.classList.remove('tv-room-lobby','tv-waiting','tv-lobby');
+  if(!keepError)$('#tv-entry-error').textContent='';
+}
 async function startTVRoom(){showTVEntryScreen();}
+$('#tv-watch-room').addEventListener('click',()=>connectRoom('watch-room',$('#tv-room-code').value.trim().toUpperCase()));
+$('#tv-room-code').addEventListener('input',event=>{event.target.value=event.target.value.toUpperCase();});
+$('#tv-room-code').addEventListener('keydown',event=>{if(event.key==='Enter')$('#tv-watch-room').click();});
+$('#tv-how-to-play').addEventListener('click',()=>$('#modal').classList.add('open'));
 document.querySelectorAll('[data-room-mode]').forEach(button=>button.addEventListener('click',()=>{if(state.clientId!==state.roomHostId||state.roomPhase!=='lobby')return;state.mode=button.dataset.roomMode;document.querySelectorAll('[data-room-mode]').forEach(b=>b.classList.toggle('active',b===button));document.querySelectorAll('.mode-button').forEach(b=>b.classList.toggle('active',b.dataset.mode===state.mode));sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit,mode:state.mode});}));
 $('#start-room-match').addEventListener('click',()=>sendRoom({type:'start-match',mode:state.mode,botCount:state.roomBotCount,roundLimit:state.roundLimit}));
 $('#room-bot-less').addEventListener('click',()=>{state.roomBotCount=clamp(state.roomBotCount-1,0,Math.max(0,6-state.roomPlayers.length));$('#room-bot-count').textContent=String(state.roomBotCount).padStart(2,'0');sendRoom({type:'set-match-options',botCount:state.roomBotCount,roundLimit:state.roundLimit});});
