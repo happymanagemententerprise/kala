@@ -885,7 +885,6 @@ $('#entry-how-to-play').addEventListener('click',()=>$('#modal').classList.add('
 $('#entry-submit').addEventListener('click',()=>{if(!applyEntrySettings('#entry-name'))return;if(state.entryMode==='create')connectRoom('create-room');else connectRoom('join-room',$('#entry-room-code').value.trim().toUpperCase());});
 $('#entry-room-code').addEventListener('input',event=>{event.target.value=event.target.value.toUpperCase();});
 $('#entry-room-code').addEventListener('keydown',event=>{if(event.key==='Enter'&&state.entryMode==='join')$('#entry-submit').click();});
-$('#entry-tv-view').addEventListener('click',()=>startTVRoom());
 $('#entry-play-solo').addEventListener('click',()=>{hideEntryScreen();state.botCount=Math.max(1,state.roomBotCount);newMatch();});
 $('#room-open').addEventListener('click',()=>{
   if(state.roomRole==='player'&&state.roomCode&&state.roomSocket?.readyState===WebSocket.OPEN){$('#room-choose').hidden=true;$('#room-lobby').hidden=false;openRoomModal();return;}

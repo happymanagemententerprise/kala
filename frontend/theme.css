@@ -483,8 +483,8 @@ body.tv-room-lobby { overflow:hidden; }
 .entry-primary { min-height:62px; margin-top:0; border-radius:14px; font:750 17px var(--display); }
 .entry-error { color:#ffb3ab; font-size:12px; }
 .entry-utility { display:flex; justify-content:center; gap:9px; margin-top:22px; color:#85d176; font:600 12px var(--sans); }
-.entry-utility button { padding:6px 3px; border:0; background:transparent; color:#b9d0cb; font:inherit; cursor:pointer; }
-.entry-utility button:hover { color:#e6fbda; text-decoration:underline; text-underline-offset:3px; }
+.entry-utility button,.entry-utility a { padding:6px 3px; border:0; background:transparent; color:#b9d0cb; font:inherit; cursor:pointer; text-decoration:none; }
+.entry-utility button:hover,.entry-utility a:hover { color:#e6fbda; text-decoration:underline; text-underline-offset:3px; }
 .room-modal.open { place-items:start center; overflow:auto; padding:clamp(24px,7vh,74px) 16px calc(24px + env(safe-area-inset-bottom)); background:#0d2d46f2; }
 .room-card { width:min(100%,560px); padding:clamp(22px,5vw,36px); border:1px solid #85d17688; border-radius:18px; background:#e6fbda; color:#0d2d46; box-shadow:0 24px 80px #061a2a88; }
 .room-card>.eyebrow,#room-phase-label { color:#3f5ba4; }

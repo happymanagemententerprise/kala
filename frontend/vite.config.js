@@ -17,6 +17,7 @@ export default defineConfig({
     emptyOutDir: true,
     rolldownOptions: {
       output: {
+        strictExecutionOrder: true,
         codeSplitting: {
           groups: [
             { name: 'three-engine', test: /[\\/]node_modules[\\/]three[\\/]src[\\/]/, priority: 10, maxSize: 350 * 1024 },
