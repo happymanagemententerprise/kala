@@ -150,11 +150,16 @@ function circleMesh(radius, color, opacity = 1, z = .2) {
 
 function buildArena() {
   const sides = [9, 7, 8, 6, 10, 7, 8][(state.round - 1) % 7];
-  const amount = state.round === 1 ? 1 : clamp(1 - (state.round - 1) * .047, .28, .96);
-  state.zone = amount;
+  // Contract polygon area by 22% per resolved round, independent of eliminations.
+  const areaRatio=Math.pow(.78,Math.max(0,state.round-1));
+  state.zone=areaRatio;
   const availableRadius = Math.max(3.2, Math.min(view.w * .44, view.h * .39));
   const rosterStartRadius=5.2+Math.max(2,state.startPlayerCount||2)*.55;
-  const radius = (state.online ? rosterStartRadius : Math.min(availableRadius,rosterStartRadius)) * amount;
+  const initialRadius=state.online?rosterStartRadius:Math.min(availableRadius,rosterStartRadius);
+  const polygonAreaFactor=count=>count*Math.sin(TAU/count)/2;
+  const initialArea=polygonAreaFactor(9)*initialRadius*initialRadius;
+  // Correct radius for the current side count so changing shape never grows area.
+  const radius=Math.sqrt(initialArea*areaRatio/polygonAreaFactor(sides));
   state.arena = makePolygon(sides, radius, -Math.PI / 2 + (state.round % 2) * .12);
   state.obstacles = [];
   const count = Math.min(4, 2 + Math.floor(state.round / 3));
@@ -583,8 +588,6 @@ function acceptRoomRound(payload) {
   state.human = state.players.find(p => p.human) || { id: null, alive: false, kills: 0, pos: v(0,0), human: false };
   state.phase = 'planning';state.roomPhase='planning'; state.locked = false; state.selected = state.human.alive ? state.human.pos : null; state.lockedMoves.clear();
   seeded(payload.seed); buildArena();
-  const sides=state.arena.length,vertexRadius=Math.min(...state.arena.map(point=>Math.hypot(point.x,point.y))),safeRadius=vertexRadius*Math.cos(Math.PI/sides)*.92;
-  for(const player of state.players){const distance=Math.hypot(player.pos.x,player.pos.y);if(distance>safeRadius&&distance>0)player.pos=v(player.pos.x*safeRadius/distance,player.pos.y*safeRadius/distance);}
   state.human=state.players.find(player=>player.human)||state.human;state.selected=state.human.alive?state.human.pos:null; rebuildVisuals(); setPlanningUI(); updateHUD(); drawPlannedMove(); if(!state.tv && state.clientId===state.roomHostId) sendRoomBotMoves();
   $('#arena-title').textContent = state.tv ? 'Waiting for operative input.' : state.human.alive ? 'Set your position.' : 'Spectator mode.';
   $('#sector-label').textContent = `ROOM ${state.roomCode} / ROUND ${String(state.round).padStart(2,'0')}`;
